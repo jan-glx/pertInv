@@ -167,19 +167,28 @@ image(gene_gene_adj[new_order,][,new_order],zlim=c(-1,1),col=viridis(100), axes=
 
 library(Hmisc)
 figure1(paste(transformation_method, " adjusted p-val distribution"),
-hist(rcorr(Y_adj, type="pearson")$P))
+hist(rcorr(Y_adj, type="pearson")$P), TRUE)
 
 figure1(paste(transformation_method, " adjusted null p-val distribution"),
-hist(rcorr(apply(Y_adj, 2, sample) , type="pearson")$P))
+hist(rcorr(apply(Y_adj, 2, sample) , type="pearson")$P), TRUE)
 
 figure1(paste(transformation_method, " raw p-val distribution"),
-hist(rcorr(Y, type="pearson")$P))
+hist(rcorr(Y, type="pearson")$P), TRUE)
 
 figure1(paste(transformation_method, " raw null p-val distribution"),
-hist(rcorr(apply(Y, 2, sample) , type="pearson")$P))
+hist(rcorr(apply(Y, 2, sample) , type="pearson")$P), TRUE)
 
 figure1(paste(transformation_method, "QQ plot"),
-qqplot(rcorr(Y_adj, type="pearson")$P, rcorr(Y, type="pearson")$P))
+qqplot(-log_rcorr(Y_adj, type="pearson")$log_P, -log_rcorr(Y, type="pearson")$log_P))
 
 figure1(paste(transformation_method, "QQ plot null"),
-qqplot(rcorr(apply(Y_adj, 2, sample), type="pearson")$P, rcorr(apply(Y, 2, sample), type="pearson")$P))
+qqplot(-log_rcorr(apply(Y_adj, 2, sample), type="pearson")$P, -log_rcorr(apply(Y, 2, sample), type="pearson")$P))
+
+figure1(paste(transformation_method, "QQ plot null"),
+qqplot(-log_rcorr(apply(Y_adj, 2, sample), type="pearson")$P, -log_rcorr(apply(Y, 2, sample), type="pearson")$P))
+
+figure1(paste(transformation_method, "QQ plot data vs null, adjusted"),
+qqplot(-log_rcorr(Y_adj, type="pearson")$P, -log_rcorr(apply(Y_adj, 2, sample), type="pearson")$P))
+
+figure1(paste(transformation_method, "QQ plot data vs null, not adjusted"),
+qqplot(-log_rcorr(Y, type="pearson")$P, -log_rcorr(apply(Y, 2, sample), type="pearson")$P))
