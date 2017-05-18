@@ -7,12 +7,25 @@ figure <- function(title, p){
   p
 }
 
-save_with_title <- function(title_){
-  title(main = title_)
-  dev.print(pdf, paste0('results/', make.names(title_), '.pdf'))
-  dev.print(png, paste0('results/', make.names(title_), '.png'), width = 480, height = 480)
-  invisible()
+
+figure1 <- function(title_, p, set_title=TRUE){
+  p <- substitute(p)
+
+  pdf(paste0('results/', make.names(title_),".pdf"))
+  eval(p)
+  if(set_title) title(title_)
+  dev.off()
+
+  png(paste0('results/', make.names(title_),".png"))
+  eval(p)
+  if(set_title) title(title_)
+  dev.off()
+
+  ret <- eval(p)
+  if(set_title) title(title_)
+  invisible(ret)
 }
+
 
 stabilize_Anscombes <- function(count_matrix){
   # Use Anscombes approximation to variance stabilize Negative Binomial data

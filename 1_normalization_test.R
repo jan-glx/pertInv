@@ -31,7 +31,7 @@ cellnames.dt[,cell_id:=cell_id+1] # changing to one_based
 cellnames.dt[,batch:=str_match(cell,".*_(.*_.*)")[,2]]
 cellnames.dt[,cell_bc:=str_match(cell,"(.*)_.*_.*")[,2]]
 
-genenames.dt <- fread(paste0('gzip -dc data/GSE90063/',data_set,'_genenames.csv.gz'), header=TRUE)
+genenames.dt <- fread(paste0('gzip -dc data/',data_set,'_genenames.csv.gz'), header=TRUE)
 setnames(genenames.dt, c("gene_id", "gene"))
 genenames.dt[,gene_id:=gene_id+1] # changing to one_based
 
@@ -157,29 +157,29 @@ if (!exists("new_order")){
   new_order <- (hclust(dist(gene_gene)))$order
 }
 
-image(gene_gene[new_order,][,new_order],zlim=c(-1,1),col=viridis(100), axes=F, xlab="gene", ylab="gene")
-save_with_title(paste(transformation_method,"raw"))
+figure1(paste(transformation_method,"raw"),
+image(gene_gene[new_order,][,new_order],zlim=c(-1,1),col=viridis(100), axes=F, xlab="gene", ylab="gene"))
 
-image(gene_gene_adj[new_order,][,new_order],zlim=c(-1,1),col=viridis(100), axes=F, xlab="gene", ylab="gene")
-save_with_title(paste(transformation_method, "adjusted"))
+figure1(paste(transformation_method, "adjusted"),
+image(gene_gene_adj[new_order,][,new_order],zlim=c(-1,1),col=viridis(100), axes=F, xlab="gene", ylab="gene"))
 
 
 
 library(Hmisc)
-hist(rcorr(Y_adj, type="pearson")$P)
-save_with_title(paste(transformation_method, " adjusted p-val distribution"))
+figure1(paste(transformation_method, " adjusted p-val distribution"),
+hist(rcorr(Y_adj, type="pearson")$P))
 
-hist(rcorr(apply(Y_adj, 2, sample) , type="pearson")$P)
-save_with_title(paste(transformation_method, " adjusted null p-val distribution"))
+figure1(paste(transformation_method, " adjusted null p-val distribution"),
+hist(rcorr(apply(Y_adj, 2, sample) , type="pearson")$P))
 
-hist(rcorr(Y, type="pearson")$P)
-save_with_title(paste(transformation_method, " raw p-val distribution"))
+figure1(paste(transformation_method, " raw p-val distribution"),
+hist(rcorr(Y, type="pearson")$P))
 
-hist(rcorr(apply(Y, 2, sample) , type="pearson")$P)
-save_with_title(paste(transformation_method, " raw null p-val distribution"))
+figure1(paste(transformation_method, " raw null p-val distribution"),
+hist(rcorr(apply(Y, 2, sample) , type="pearson")$P))
 
-qqplot(rcorr(Y_adj, type="pearson")$P, rcorr(Y, type="pearson")$P)
-save_with_title(paste(transformation_method, "QQ plot"))
+figure1(paste(transformation_method, "QQ plot"),
+qqplot(rcorr(Y_adj, type="pearson")$P, rcorr(Y, type="pearson")$P))
 
-qqplot(rcorr(apply(Y_adj, 2, sample), type="pearson")$P, rcorr(apply(Y, 2, sample), type="pearson")$P)
-save_with_title(paste(transformation_method, "QQ plot null"))
+figure1(paste(transformation_method, "QQ plot null"),
+qqplot(rcorr(apply(Y_adj, 2, sample), type="pearson")$P, rcorr(apply(Y, 2, sample), type="pearson")$P))
