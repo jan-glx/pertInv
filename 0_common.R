@@ -8,22 +8,28 @@ figure <- function(title, p){
 }
 
 
-figure1 <- function(title_, p, sub_title=FALSE){
+figure1 <- function(title_, p, sub_title=FALSE, title=!sub_title){
   p <- substitute(p)
 
   pdf(paste0('results/', make.names(title_),".pdf"))
-  eval(p)
-  if(sub_title) title(sub=title_) else title(title_)
+  res <- withVisible(eval(p))
+  if (res$visible) print(res$value)
+  if(sub_title) title(sub=title_)
+  if(title) title(title_)
   dev.off()
 
-  png(paste0('results/', make.names(title_),".png"))
-  eval(p)
-  if(sub_title) title(sub=title_) else title(title_)
+  png(paste0('results/', make.names(title_),".png"),  width = 6, height = 6, units = 'in',res=1200)
+  res <- withVisible(eval(p))
+  if (res$visible) print(res$value)
+  if(sub_title) title(sub=title_)
+  if(title) title(title_)
   dev.off()
 
-  ret <- eval(p)
-  if(sub_title) title(sub=title_) else title(title_)
-  invisible(ret)
+
+  res <- withVisible(eval(p))
+  if(sub_title) title(sub=title_)
+  if(title) title(title_)
+  if (res$visible) res$value else invisible(res$value)
 }
 
 
@@ -59,4 +65,31 @@ log_rcorr <- function(x, ...) {
   dimnames(log_P) <- list(nam, nam)
   res$log_P = log_P
   res
+}
+
+plot_corr_matrix <- function(X, ordering){
+  lattice::levelplot(X[ordering,][,ordering], scales=list(draw=FALSE),
+            xlab="gene", ylab="gene", col.regions = colorRampPalette(RColorBrewer::brewer.pal(11,"RdBu"))(201),
+            at=seq(-1,1,0.01))
+}
+
+plot_corr_matrix <- function(X, ordering){
+  lattice::levelplot(X[ordering,][,ordering], scales=list(draw=FALSE),
+                     xlab="gene", ylab="gene", col.regions = viridis::viridis(201),
+                     at=seq(-1,1,0.01))
+}
+cool_warm <- function(n) {
+  colormap <- Rgnuplot:::GpdivergingColormap(seq(0,1,length.out=n),
+                                             rgb1 = colorspace::sRGB( 0.230, 0.299, 0.754),
+                                             rgb2 = colorspace::sRGB( 0.706, 0.016, 0.150),
+                                             outColorspace = "sRGB")
+  colormap[colormap>1] <- 1 # sometimes values are slightly larger than 1
+  colormap <- grDevices::rgb(colormap[,1], colormap[,2], colormap[,3])
+  colormap
+}
+
+plot_corr_matrix <- function(X, ordering){
+  lattice::levelplot(X[ordering,][,ordering], scales=list(draw=FALSE),
+                     xlab="gene", ylab="gene", col.regions = red_blue_diverging_colormap(500),
+                     at=seq(-1,1,length.out=500))
 }

@@ -75,7 +75,7 @@ figure("distribution of number of cells with guide",
          xlab('# cells with respective guide')+ expand_limits(x=0)
 )
 
-NUM_GENES_TO_KEEP = 2000
+NUM_GENES_TO_KEEP = 200
 
 
 genes_summary.dt <-
@@ -150,22 +150,21 @@ Y_adj <- residuals(fit)
 fit <- lm(Y ~ .,as.data.table(X))# lm(x=X,y=Y)
 anova(fit)
 
-library(viridis)
 gene_gene <- cor(Y)
 gene_gene_adj <- cor(Y_adj)
 if (!exists("new_order")){
   new_order <- (hclust(dist(gene_gene)))$order
 }
 
+diag(gene_gene) <- NA
 figure1(paste(transformation_method,"raw"),
-image(gene_gene[new_order,][,new_order],zlim=c(-1,1),col=viridis(100), axes=F, xlab="gene", ylab="gene"))
-
-figure1(paste(transformation_method, "adjusted"),
-image(gene_gene_adj[new_order,][,new_order],zlim=c(-1,1),col=viridis(100), axes=F, xlab="gene", ylab="gene"))
+plot_corr_matrix(gene_gene, new_order), title=FALSE)
 
 
+diag(gene_gene_adj) <- NA
+figure1(paste(transformation_method,"adjusted"),
+plot_corr_matrix(gene_gene_adj,new_order), title=FALSE)
 
-library(Hmisc)
 figure1(paste(transformation_method, " adjusted p-val distribution"),
 hist(rcorr(Y_adj, type="pearson")$P), TRUE)
 
@@ -182,13 +181,15 @@ figure1(paste(transformation_method, "QQ plot"),
 qqplot(-log_rcorr(Y_adj, type="pearson")$log_P, -log_rcorr(Y, type="pearson")$log_P))
 
 figure1(paste(transformation_method, "QQ plot null"),
-qqplot(-log_rcorr(apply(Y_adj, 2, sample), type="pearson")$P, -log_rcorr(apply(Y, 2, sample), type="pearson")$P))
+qqplot(-log_rcorr(apply(Y_adj, 2, sample), type="pearson")$log_P, -log_rcorr(apply(Y, 2, sample), type="pearson")$log_P))
 
 figure1(paste(transformation_method, "QQ plot null"),
-qqplot(-log_rcorr(apply(Y_adj, 2, sample), type="pearson")$P, -log_rcorr(apply(Y, 2, sample), type="pearson")$P))
+qqplot(-log_rcorr(apply(Y_adj, 2, sample), type="pearson")$log_P, -log_rcorr(apply(Y, 2, sample), type="pearson")$log_P))
 
 figure1(paste(transformation_method, "QQ plot data vs null, adjusted"),
-qqplot(-log_rcorr(Y_adj, type="pearson")$P, -log_rcorr(apply(Y_adj, 2, sample), type="pearson")$P))
+qqplot(-log_rcorr(Y_adj, type="pearson")$log_P, -log_rcorr(apply(Y_adj, 2, sample), type="pearson")$log_P))
 
 figure1(paste(transformation_method, "QQ plot data vs null, not adjusted"),
-qqplot(-log_rcorr(Y, type="pearson")$P, -log_rcorr(apply(Y, 2, sample), type="pearson")$P))
+qqplot(-log_rcorr(Y, type="pearson")$log_P, -log_rcorr(apply(Y, 2, sample), type="pearson")$log_P))
+
+
