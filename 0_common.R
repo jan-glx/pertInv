@@ -3,7 +3,7 @@ figure <- function(title, p){
   RESULT_FOLDER <- "results"
   ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".pdf")))
   p <- p + ggtitle(title)
-  ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".png")))
+  ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".png")), dpi=600)
   p
 }
 
@@ -18,7 +18,7 @@ figure1 <- function(title_, p, sub_title=FALSE, title=!sub_title){
   if(title) title(title_)
   dev.off()
 
-  png(paste0('results/', make.names(title_),".png"),  width = 6, height = 6, units = 'in',res=1200)
+  png(paste0('results/', make.names(title_),".png"),  width = 6, height = 6, units = 'in',res=600)
   res <- withVisible(eval(p))
   if (res$visible) print(res$value)
   if(sub_title) title(sub=title_)
