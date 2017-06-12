@@ -47,31 +47,47 @@ X <- model.matrix(~I(CDR^2)+I(CDR^3)+CDR+total_counts_scaled+batch,data=covariat
 fit <- lm(Y ~ .,as.data.table(X))
 Y_adj <- residuals(fit)
 
-
+null <- ""
 for (null in c("", "null (permuted targeted labels)")){
 
   dt <- melt(data.table(Y_adj, keep.rownames = TRUE), id.vars="rn")
   setnames(dt, c("cell", "gene", "adjusted expression"))
-  dt[,c("ENSG", "gene short") :=tstrsplit(gene,split = "_")]
-  dt[, targeted:=FALSE]
-  dt[cbc_gbc_dict.dt,targeted := TRUE, on=c("cell","gene short"="target_gene")]
+  dt[,c("ENSG", "gene_short") :=tstrsplit(gene,split = "_")]
+
+  dt <- cbc_gbc_dict.dt[dt, on = c("cell","target_gene"="gene_short")]
+
+  dt[, targeted:=!is.na(guide)]
 
   if (null=="null (permuted targeted labels)") dt[, targeted:=sample(targeted)]
 
   figure(paste0("box-plot self effect of guides", null),
-         ggplot(dt, aes(x=gene,y=`adjusted expression`, color=targeted))+geom_boxplot()+coord_flip()
+         ggplot(dt, aes(x=gene,y=`adjusted expression`, color=guide))+geom_boxplot()+coord_flip()
   )
 
-  dt[,`:=`(k=rank(`adjusted expression`),n=.N), by=.(gene,targeted)]
+  dt[,`:=`(k=rank(`adjusted expression`),n=.N), by=.(gene,guide)]
   dt[,p_self:=k/n]
-  dt[,`:=`(p=(rank(`adjusted expression`)-k)/(.N-n)), by=.(gene)]
+  dt[,`:=`(k2=rank(`adjusted expression`),n2=.N), by=.(gene,targeted)]
+  dt[,p_self2:=k2/n2]
+  dt[,`:=`(p=(rank(`adjusted expression`)-k2)/(.N-n2)), by=.(gene)]
   dt[(targeted),`:=`(p_targeted=p_self,p_non_targeted=p)]
   dt[(!targeted),`:=`(p_targeted=p,p_non_targeted=p_self)]
 
   figure(paste0("pp-plot self effect of guides", null),
-         ggplot(dt, aes(x=p_non_targeted,y=p_targeted, color=gene))+geom_line()+geom_abline()
+         ggplot(setorder(dt[(targeted)],p_non_targeted), aes(x=p_non_targeted,y=p_targeted, color=guide))+geom_line()+geom_abline()
   )
 
-  res <- dt[,.(p.value=wilcox.test(`adjusted expression`[targeted],`adjusted expression`[!targeted],alternative="less")$p.value),by=gene]
-  print(res[,p.adjust(p.value)])
+
+  res <- dt[, {
+    null_sample<-`adjusted expression`[(!targeted)]
+    .SD[(targeted),
+        .(p.value=wilcox.test(`adjusted expression`, null_sample, alternative="less")$p.value),
+        by=guide]
+        },by=gene]
+  res[,p.value.adj:=p.adjust(p.value, method="BH")]
+  print(res)
+
+  pvalues <- res[,log(p.value)]
+  figure1(paste0("hist log p.values", null),
+          hist(pvalues),
+          sub_title = TRUE)
 }
