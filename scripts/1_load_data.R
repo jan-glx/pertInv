@@ -44,8 +44,8 @@ cbc_gbc_dict.dt[cellnames.dt, cell_id:=cell_id, on="cell"]
 #cbc_gbc_dict.dt <- cbc_gbc_dict.dt[cellnames.dt,on="cell"]
 
 # find targt genes of guides
-genenames.dt[, targted_by:=stringr::str_match(
-  genenames.dt[,gene],
-  paste0("(", paste0(cbc_gbc_dict.dt[,unique(target_gene)],collapse="|"), ")")
+genenames.dt[, targeted_by:=stringr::str_match(
+  gene,
+  paste0("_(", paste0(cbc_gbc_dict.dt[,unique(target_gene)],collapse="|"), ")$")
 )[,2]]
 
