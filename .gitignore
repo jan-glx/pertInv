@@ -1,2 +1,3 @@
-data/*.gz
+data_raw/*.gz
+data_raw/*.csv
 .Rproj.user

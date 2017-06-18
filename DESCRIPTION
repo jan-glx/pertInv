@@ -1,0 +1,12 @@
+Package: pertInv
+Type: Package
+Title: What the package does (short line)
+Version: 0.0.9000
+Date: 2017-06-08
+Author: Jan Gleixner
+Maintainer: Jan Gleixner <jan.gleixner@gmail.com>
+Description: More about what it does (maybe more than one line)
+Imports: data.table,scran,Matrix,stringr,cowplot
+Depends: data.table,cowplot
+License: MIT
+RoxygenNote: 6.0.1
