@@ -15,6 +15,18 @@ figure <- function(title, p){
   p
 }
 
+#' Saves last figure as png and as pdf
+#'
+#'
+#'
+#' @param title_ filename for save optional title for the plot
+#' @param p unevaluated expression that performs the plot
+#' @param sub_title \code{title_} will be added as sub title to the plot if set
+#' @param title \code{title_} will be added as title to the plot if set
+#'
+#' @return \code{p} evaluated
+#'
+#'
 #' @export
 figure1 <- function(title_, p, sub_title=FALSE, title=!sub_title){
   p <- substitute(p)
@@ -78,17 +90,17 @@ log_rcorr <- function(x, ...) {
 }
 
 #' @export
-plot_corr_matrix <- function(X, ordering){
+plot_corr_matrix <- function(X, ordering=seq_len(dim(X)[1])){
   lattice::levelplot(X[ordering,][,ordering], scales=list(draw=FALSE),
             xlab="gene", ylab="gene", col.regions = colorRampPalette(RColorBrewer::brewer.pal(11,"RdBu"))(201),
             at=seq(-1,1,0.01))
 }
 
 #' @export
-plot_corr_matrix <- function(X, ordering){
-  lattice::levelplot(X[ordering,][,ordering], scales=list(draw=FALSE),
-                     xlab="gene", ylab="gene", col.regions = viridis::viridis(201),
-                     at=seq(-1,1,0.01))
+plot_matrix <- function(X){
+  lattice::levelplot(X, scales=list(draw=FALSE),
+                     xlab="gene", ylab="gene", col.regions = viridis::viridis(101),
+                     at=seq(0,1,0.01))
 }
 
 #' @export
@@ -105,6 +117,6 @@ cool_warm <- function(n) {
 #' @export
 plot_corr_matrix <- function(X, ordering){
   lattice::levelplot(X[ordering,][,ordering], scales=list(draw=FALSE),
-                     xlab="gene", ylab="gene", col.regions = red_blue_diverging_colormap(500),
+                     xlab="gene", ylab="gene", col.regions = cool_warm(500),
                      at=seq(-1,1,length.out=500))
 }
