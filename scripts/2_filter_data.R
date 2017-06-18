@@ -14,12 +14,29 @@ figure("distribution of number of cells with guide",
          xlab('# cells with respective guide')+ expand_limits(x=0)
 )
 
-NUM_GENES_TO_KEEP = 200
+NUM_GENES_TO_KEEP = 2000
 
 
 genes_summary.dt <-
   counts.dt[, .(total_counts=sum(count), cells_with_counts=.N),by=.(gene_id)
-            ][, keep := rank(-cells_with_counts)<=NUM_GENES_TO_KEEP]
+            ][, `:=`(keep = rank(-cells_with_counts)<=NUM_GENES_TO_KEEP,
+                     frac_cells_with_counts=total_counts/.N,
+                     mean_counts_per_cell_with_counts=total_counts/cells_with_counts)]
+
+figure("Distribution fraction of cells with counts over genes",
+       ggplot(genes_summary.dt, aes(x=frac_cells_with_counts))+
+         geom_density()+
+         scale_x_log10()
+)
+median( genes_summary.dt[,frac_cells_with_counts])
+
+figure("Distribution mean counts per cells with counts over genes",
+       ggplot(genes_summary.dt, aes(x=mean_counts_per_cell_with_counts-1))+
+         geom_density()+
+         scale_x_log10()
+)
+median( genes_summary.dt[,mean_counts_per_cell_with_counts])
+
 
 figure("Distribution counts over gene",
        ggplot(genes_summary.dt, aes(x=total_counts))+
