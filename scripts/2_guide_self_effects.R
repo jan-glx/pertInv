@@ -1,10 +1,16 @@
 
-genenames.dt[!is.na(targeted_by)]
 
-counts.dt <- counts.dt[genenames.dt[!is.na(targeted_by)], on="gene_id"]
+genes_summary.dt <-
+  counts.dt[, .(total_counts=sum(count), cells_with_counts=.N),by=.(gene_id)
+            ][, p := rank(cells_with_counts)/.N]
+
+
+genes_summary.dt[genenames.dt[!is.na(targeted_by)], on="gene_id"]
+
+counts.dt2 <- counts.dt[genenames.dt[!is.na(targeted_by)], on="gene_id"]
 
 cells_summary.dt <-
-  counts.dt[,.(total_counts=sum(count),genes_with_counts=.N), by=cell_id
+  counts.dt2[,.(total_counts=sum(count),genes_with_counts=.N), by=cell_id
             ][, keep := !scater::isOutlier(total_counts, nmads=2, type="lower", log=TRUE)]
 cells_summary.dt[,n_guides:=0L]
 cells_summary.dt[cbc_gbc_dict.dt[,.(n_guides=.N),by=cell_id], n_guides:=i.n_guides, on="cell_id"]
@@ -19,17 +25,17 @@ cells_summary.dt[,.N,by=keep]
 
 
 # filtering
-counts.dt <- counts.dt[cell_id %in% cells_summary.dt[keep==TRUE,cell_id]]
+counts.dt2 <- counts.dt2[cell_id %in% cells_summary.dt[keep==TRUE,cell_id]]
 
 
-counts.dt[, gene_id2:=.GRP, keyby=gene_id]
-counts.dt[, cell_id2:=.GRP, keyby=cell_id]
+counts.dt2[, gene_id2:=.GRP, keyby=gene_id]
+counts.dt2[, cell_id2:=.GRP, keyby=cell_id]
 
 
-count_matrix <- counts.dt[,as.matrix(Matrix::sparseMatrix(cell_id2, gene_id2, x=count))]
+count_matrix <- counts.dt2[,as.matrix(Matrix::sparseMatrix(cell_id2, gene_id2, x=count))]
 
-genenames.dt <- genenames.dt[unique(counts.dt, by=c("gene_id","gene_id2")), on="gene_id"]
-cellnames.dt <- cellnames.dt[unique(counts.dt, by=c("cell_id","cell_id2")), on="cell_id"]
+genenames.dt <- genenames.dt[unique(counts.dt2, by=c("gene_id","gene_id2")), on="gene_id"]
+cellnames.dt <- cellnames.dt[unique(counts.dt2, by=c("cell_id","cell_id2")), on="cell_id"]
 
 colnames(count_matrix) <- setorder(genenames.dt,gene_id2)[, gene]
 rownames(count_matrix) <- setorder(cellnames.dt,cell_id2)[, cell]
