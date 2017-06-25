@@ -7,11 +7,11 @@
 NULL
 
 #' @export
-figure <- function(title, p){
+figure <- function(title, p, ...){
   RESULT_FOLDER <- "results"
-  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".pdf")))
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".pdf")), ...)
   p <- p + ggplot2::ggtitle(title)
-  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".png")), dpi=600)
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".png")), dpi=600, ...)
   p
 }
 

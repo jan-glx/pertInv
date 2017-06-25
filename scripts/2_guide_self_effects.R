@@ -67,7 +67,8 @@ for (null in c("", "null (permuted targeted labels)")){
   if (null=="null (permuted targeted labels)") dt[, targeted:=sample(targeted)]
 
   figure(paste0("box-plot self effect of guides", null),
-         ggplot(dt, aes(x=gene,y=`adjusted expression`, color=guide))+geom_boxplot()+coord_flip()
+         ggplot(dt, aes(x=gene,y=`adjusted expression`, color=guide))+geom_boxplot()+coord_flip()+
+           geom_hline(yintercept=0, linetype="dashed"),width=10
   )
 
   dt[,`:=`(k=rank(`adjusted expression`),n=.N), by=.(gene,guide)]

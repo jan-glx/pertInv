@@ -7,10 +7,9 @@ X <- model.matrix(~I(CDR^2)+I(CDR^3)+CDR+total_counts_scaled+batch,data=covariat
 fit <- lm(Y ~ .,as.data.table(X))
 Y_adj <- residuals(fit)
 
-i=3
 YY <- Y_adj[,i]
 XX <-Y_adj[,-i]
-ExpInd <- covariates.dt[, target_gene] #interaction(batch, guide)]#target_gene]#
+ExpInd <- covariates.dt[, guide] #interaction(batch, guide)]#target_gene]#
 ExpInd[is.na(ExpInd)] <- "none"
 
 #res <- InvariantCausalPrediction::ICP(X, Y, ExpInd,"exact", maxNoObs = 1000, maxNoVariables=12)
@@ -18,17 +17,17 @@ ExpInd[is.na(ExpInd)] <- "none"
 
 pb = txtProgressBar(min = 0, max = ncol(Y_adj), initial = 0, style=3)
 res = list()
-for (i in seq_len(ncol(Y_adj))) {
+for (i in seq(ii*10+1, min(ncol(Y_adj),(ii+1)*10-1))) {
   YY <- Y_adj[,i]
   XX <- Y_adj[,-i]
-  res[[i]] <-ICP(XX, YY, ExpInd,
+  res[[colnames(Y_adj)[i]]] <-ICP(XX, YY, ExpInd,
                  showAcceptedSets = FALSE,
                  showCompletion = FALSE,
-                 stopIfEmpty=TRUE) #hiddenICP(XX, YY, ExpInd, intercept = TRUE)
+                 stopIfEmpty=FALSE) #hiddenICP(XX, YY, ExpInd, intercept = TRUE)
   setTxtProgressBar(pb,i)
 }
 close(pb)
-save(res, file="ICP_run.Rdata")
+save(res, file=paste0("results/ICP_run_",ii,".Rdata"))
 
 # start_time <- proc.time()
 # res <- hiddenICP(XX, YY, ExpInd, intercept = TRUE)
