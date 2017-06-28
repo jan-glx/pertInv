@@ -1,4 +1,4 @@
-library("InvariantCausalPrediction")
+library("pertInv")
 
 covariates.dt<-fread("results/covariates.dt.csv")
 load(file="results/count_matrix.RData")
