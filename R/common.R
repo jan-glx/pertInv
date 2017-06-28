@@ -120,3 +120,10 @@ plot_corr_matrix <- function(X, ordering){
                      xlab="gene", ylab="gene", col.regions = cool_warm(500),
                      at=seq(-1,1,length.out=500))
 }
+
+#' @export
+is_dev <- function(){
+  exists("development_mode") && development_mode
+}
+
+

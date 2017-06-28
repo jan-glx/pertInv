@@ -3,6 +3,7 @@
 export(cool_warm)
 export(figure)
 export(figure1)
+export(is_dev)
 export(log_rcorr)
 export(phi_hat)
 export(plot_corr_matrix)
