@@ -91,3 +91,6 @@ covariates.dt <- cbc_gbc_dict.dt[cells_summary.dt[cellnames.dt, on="cell_id"], o
 guide_matrix <- covariates.dt[!is.na(guide_id), as.matrix(Matrix::sparseMatrix(cell_id2, guide_id, x=TRUE))]
 
 covariates.dt[is.na(guide),guide:="none"]
+
+fwrite(covariates.dt,"results/covariates.dt.csv")
+save(count_matrix,file="results/count_matrix.RData")
