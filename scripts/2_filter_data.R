@@ -49,7 +49,7 @@ genes_summary.dt[,.N,by=keep]
 
 cells_summary.dt <-
   counts.dt[,.(total_counts=sum(count),genes_with_counts=.N), by=cell_id
-            ][, keep := !scater::isOutlier(total_counts, nmads=2, type="lower", log=TRUE)]
+            ][, keep := total_counts>quantile(total_counts, 50/100)]
 cells_summary.dt[,n_guides:=0L]
 cells_summary.dt[cbc_gbc_dict.dt[,.(n_guides=.N),by=cell_id], n_guides:=i.n_guides, on="cell_id"]
 
