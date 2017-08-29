@@ -35,7 +35,7 @@ genenames.dt[,gene_id:=gene_id+1] # changing to one_based
 # Load cell-guide mapping
 cbc_gbc_dict.dt <- fread(paste0('gzip -dc ', data_folder, data_set, '_cbc_gbc_dict_new.csv.gz'), header= FALSE)
 setnames(cbc_gbc_dict.dt, c("guide", "cells"))
-cbc_gbc_dict.dt[, target_gene:=stringr::str_match(guide,"^p_(?:sg)?((?:(?<=sg).*(?=_))|(?:INTERGENIC))(?:_)?\\d+$")[,2]]
+cbc_gbc_dict.dt[, target_gene:=stringr::str_match(guide,"^(?:c|m|p)_(?:sg)?((?:.*(?=_))|(?:INTERGENIC))(?:_)?\\d+$")[,2]]
 
 cbc_gbc_dict.dt <- cbc_gbc_dict.dt[,.(cell=stringr::str_split(cells, ", ")[[1]]), by=.(guide, target_gene)]
 cbc_gbc_dict.dt[,.N,by=cell][,.N,keyby=N]
