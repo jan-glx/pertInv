@@ -14,16 +14,13 @@ X = guide_matrix
 
 isTrain <- sample(nrow(X), ceiling(nrow(X)*2/3))
 isNotTrain <- seq_len(nrow(X))[-isTrain]
-isCalib <- sample(isNotTrain, ceiling(length(isNotTrain)/2))
-isTest <- setdiff(isNotTrain,isCalib)
-isNotTrain <- c(isCalib,isTest)
-isTestInNotTrain <- rep(c(FALSE,TRUE), c(length(isCalib),length(isTest)))
+isTestInNotTrain <- sample(rep(c(FALSE,TRUE), ceiling(length(isNotTrain)/2)), length(isNotTrain))
 
 fit <- glmnet::glmnet(X[isTrain,], Y[isTrain,], alpha=0.5, lambda = 0.0005, family = "mgaussian", standardize = FALSE)
 
-residuals_calib <- predict(fit, X[isCalib,])[,,1] - Y[isCalib,]
+residuals_train <- predict(fit, X[isTrain,])[,,1] - Y[isTrain,]
 
-sigma <- cov(residuals_calib)
+sigma <- cov(residuals_train)
 sigma_res <- sqrt(diag(sigma))
 sigma_genes <- apply(Y[isNotTrain,], MARGIN = 2, sd)
 
@@ -111,7 +108,7 @@ dt[LL_method=="xgboost", LLR:=-log(1/p_ko-1)]
 
 
 dt[, c("scaling_factor","offset"):=
-     as.list(optim(par = c(1,0.001), fn = cross_entropy_loss, y=guide_detected[isTest], LLR=LLR[isTest])$par),
+     as.list(optim(par = c(1,0.001), fn = cross_entropy_loss, y=guide_detected[!isTest], LLR=LLR[!isTest])$par),
   by= .(LL_method,guide)]
 
 dt[, p_ko_fitted := 1/(1+exp(-(scaling_factor*LLR+offset))), by= .(LL_method,guide)]
@@ -125,16 +122,17 @@ dt_bak <- dt
 # --------------------------------------------------------------
 dt <- copy(dt_bak)
 
+dt <- dt[(isTest)]
 
 res <- dt[(guide_detected) & LL_method == "dixit",
-   .(frac_confidently_perturbed = c(mean(p_ko>0.975),mean(p_ko_fitted>0.975)), method=c("dixit","calibrated dixit")),by=.(guide,guide_name)]
+   .(frac_confidently_perturbed = c(mean(p_ko>0.95),mean(p_ko_fitted>0.95)), method=c("dixit","calibrated dixit")),by=.(guide,guide_name)]
 
 ggplot(res, aes(y=frac_confidently_perturbed,x=method))+geom_violin()
 
 
 dt <- dt[guide>50 | guide==36]
 
-res <- dt[(isTest), .(x_entropy_loss=cross_entropy_lossf(p_ko,guide_detected),
+res <- dt[, .(x_entropy_loss=cross_entropy_lossf(p_ko,guide_detected),
               x_entropy_loss_fit=cross_entropy_lossf(p_ko_fitted,guide_detected)),
           by=.(LL_method,guide,guide_name)]
 setorder(res,"x_entropy_loss_fit")
@@ -152,24 +150,24 @@ ggplot(dt, aes(x= (LL_perturbed-LL_not_perturbed+log(theta0)-log(1-theta0)), col
 
 
 
-ggplot(dt[(isTest)], aes(x= p_ko_fitted, linetype=guide_detected, color=LL_method, xintercept=theta0))+
+ggplot(dt, aes(x= p_ko_fitted, linetype=guide_detected, color=LL_method, xintercept=theta0))+
   stat_ecdf() + facet_wrap("guide_name",scales="free_x") + geom_vline(aes(xintercept=theta0), data=unique(dt, by=c("guide")), linetype="dotted")+
   ylab("ECDF")
 ggsave(paste0("results/p_fitted_ecdf.png"), dpi = 400, width = 8, height=8)
 
-ggplot(dt[(isTest)], aes(x= p_ko, linetype=guide_detected, color=LL_method, xintercept=theta0))+
+ggplot(dt, aes(x= p_ko, linetype=guide_detected, color=LL_method, xintercept=theta0))+
   stat_ecdf() + facet_wrap("guide_name",scales="free_x") + geom_vline(aes(xintercept=theta0), data=unique(dt, by=c("guide")), linetype="dotted")+
   ylab("ECDF")
 ggsave(paste0("results/p_ecdf.png"), dpi = 400, width = 8, height=8)
 
 
 
-ggplot(dt[(isTest)], aes(x= p_ko_fitted, linetype=guide_detected, color=LL_method, xintercept=theta0))+
+ggplot(dt, aes(x= p_ko_fitted, linetype=guide_detected, color=LL_method, xintercept=theta0))+
   geom_density(aes(y=..scaled..),fill=NA, size=1,alpha=0.5) + facet_wrap("guide_name",scales="free_x") +
   geom_vline(aes(xintercept=theta0), data=unique(dt, by=c("guide")), linetype="dotted")
 ggsave(paste0("results/p_fitted_density.png"), dpi = 400, width = 8, height=8)
 
-ggplot(dt[(isTest)], aes(x= p_ko, linetype=guide_detected, color=LL_method, xintercept=theta0))+
+ggplot(dt, aes(x= p_ko, linetype=guide_detected, color=LL_method, xintercept=theta0))+
   geom_density(aes(y=..scaled..),fill=NA, size=1,alpha=0.5) + facet_wrap("guide_name",scales="free_x") +
   geom_vline(aes(xintercept=theta0), data=unique(dt, by=c("guide")), linetype="dotted")
 ggsave(paste0("results/p_density.png"), dpi = 400, width = 8, height=8)
