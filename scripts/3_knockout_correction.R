@@ -37,11 +37,13 @@ residuals_test_correct <- predict(fit, X[isNotTrain,])[,,1] - Y[isNotTrain,]
 LL_mnorm <- function(res) mvtnorm::dmvnorm(res, sigma=sigma,                    log=TRUE)
 LL_norm  <- function(res)    rowSums(dnorm(res,    sd=sigma_res,                log = TRUE))
 LL_dixit <- function(res)    rowSums(dnorm(res,    sd=sqrt(sigma_genes^2+0.25), log = TRUE))
+LL_same <- function(res)    rowSums(dnorm(res,    sd=sqrt(sum(sigma_res^2)), log = TRUE))
 
 
 LL_correct_mnorm <- LL_mnorm(residuals_test_correct)
 LL_correct_norm  <- LL_norm(residuals_test_correct)
 LL_correct_dixit <- LL_dixit(residuals_test_correct)
+LL_correct_same <- LL_same(residuals_test_correct)
 
 
 if (!is.null(cl)) clusterExport(cl, ls())
@@ -58,15 +60,16 @@ workerfun <- function(i) {
     LL_swapped_mnorm <- LL_mnorm(residuals_test_swapped)
     LL_swapped_norm  <- LL_norm( residuals_test_swapped)
     LL_swapped_dixit <- LL_dixit(residuals_test_swapped)
+    LL_swapped_same  <- LL_dixit(residuals_test_swapped)
 
     dt1 <- data.table::data.table(
       guide = i,
       guide_detected = guide_detected,
-      LL_swapped = c(LL_swapped_mnorm, LL_swapped_norm, LL_swapped_dixit),
-      LL_correct = c(LL_correct_mnorm, LL_correct_norm, LL_correct_dixit),
-      LL_method = rep(c("mvnorm", "norm", "dixit"), each=length(LL_swapped_mnorm)),
+      LL_swapped = c(LL_swapped_mnorm, LL_swapped_norm, LL_swapped_dixit, LL_swapped_same),
+      LL_correct = c(LL_correct_mnorm, LL_correct_norm, LL_correct_dixit, LL_correct_same),
+      LL_method = rep(c("mvnorm", "norm", "dixit", "same"), each=length(LL_swapped_mnorm)),
       theta0 = theta0[i],
-      isTest = rep(isTestInNotTrain, 3)
+      isTest = isTestInNotTrain
     )
 
     dt1[(guide_detected), LL_perturbed:=LL_correct]
@@ -104,6 +107,7 @@ cross_entropy_loss <-  function(ff,y, LLR) sum(log(1+exp(-(ff[1]*LLR+ff[2])*(2*y
 
 dt[,LLR:=LL_perturbed-LL_not_perturbed]
 dt[LL_method=="xgboost", LLR:=-log(1/p_ko-1)]
+dt[LL_method!="xgboost", p_ko:=1/(1+exp(-(LLR+log(theta0)-log(1-theta0)))) ]
 
 
 
@@ -124,31 +128,26 @@ dt <- copy(dt_bak)
 
 dt <- dt[(isTest)]
 
-res <- dt[(guide_detected) & LL_method == "dixit",
-   .(frac_confidently_perturbed = c(mean(p_ko>0.95),mean(p_ko_fitted>0.95)), method=c("dixit","calibrated dixit")),by=.(guide,guide_name)]
+res <- melt(dt,measure.vars = c("p_ko","p_ko_fitted"),value.name = "p_ko")[, method:=paste0(LL_method,variable)][(guide_detected) ,
+   .(frac_confidently_perturbed = mean(p_ko>0.10)),by=.(guide,guide_name,method)]
 
-ggplot(res, aes(y=frac_confidently_perturbed,x=method))+geom_violin()
+ggplot(res[method=="samep_ko_fitted"], aes(y=frac_confidently_perturbed,x=method))+geom_violin()
 
-
-dt <- dt[guide>50 | guide==36]
 
 res <- dt[, .(x_entropy_loss=cross_entropy_lossf(p_ko,guide_detected),
               x_entropy_loss_fit=cross_entropy_lossf(p_ko_fitted,guide_detected)),
           by=.(LL_method,guide,guide_name)]
 setorder(res,"x_entropy_loss_fit")
 res
-res[,r:= rank(x_entropy_loss_fit),by=guide]
+res[,r_fit:= rank(x_entropy_loss_fit),by=guide]
+res[,r:= rank(x_entropy_loss),by=guide]
+res[,sum(r_fit),by=LL_method]
 res[,sum(r),by=LL_method]
 
 
+dt <- dt[guide>50 | guide==36]
+
 options(bitmapType='cairo')
-ggplot(dt, aes(x= p_ko_fitted, linetype=guide_detected, color=LL_method))+
-  stat_density(fill=NA)+ facet_wrap("guide_name")
-
-ggplot(dt, aes(x= (LL_perturbed-LL_not_perturbed+log(theta0)-log(1-theta0)), color=guide_detected, linetype=LL_method))+
-  stat_ecdf()+ facet_wrap("guide_name")
-
-
 
 ggplot(dt, aes(x= p_ko_fitted, linetype=guide_detected, color=LL_method, xintercept=theta0))+
   stat_ecdf() + facet_wrap("guide_name",scales="free_x") + geom_vline(aes(xintercept=theta0), data=unique(dt, by=c("guide")), linetype="dotted")+
@@ -176,22 +175,22 @@ ggsave(paste0("results/p_density.png"), dpi = 400, width = 8, height=8)
 
 
 
-for (method in c("mvnorm", "norm", "dixit","xgboost")) {
+for (method in c("mvnorm", "norm", "dixit","same","xgboost")) {
   ggplot(dt[LL_method == method], aes(x= p_ko_fitted, color=guide_detected, linetype=LL_method))+
     geom_density() + facet_wrap("guide_name", scales = "free")
   ggsave(paste0("results/p_fitted_density_",method,".png"), dpi = 400, width = 12, height=8)
-}
+
   ggplot(dt[LL_method == method], aes(x= p_ko, color=guide_detected, linetype=LL_method))+
     geom_density() + facet_wrap("guide_name", scales = "free")
   ggsave(paste0("results/p_density_",method,".png"), dpi = 400, width = 12, height=8)
 
   ggplot(dt[LL_method == method],
-         aes(x= LL_perturbed-LL_not_perturbed, color=guide_detected, linetype=LL_method))+
+         aes(x= LLR, color=guide_detected, linetype=LL_method))+
     geom_density() + facet_wrap("guide_name", scales = "free")
   ggsave(paste0("results/LLR_density_",method,".png"), dpi = 400, width = 12, height=8)
 
   ggplot(dt[LL_method == method][guide_name =="m_Stat1_3"][guide_detected==TRUE],
-         aes(x=LL_correct-LL_swapped, linetype=LL_method)) +
+         aes(x=LLR, linetype=LL_method)) +
     geom_histogram(bins=20) + ggtitle("m_Stat1_3")
   ggsave(paste0("results/LLR_density_m_Stat1_3_",method,".png"), dpi = 400, width = 8, height=8)
 }
