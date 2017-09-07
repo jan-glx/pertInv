@@ -30,7 +30,7 @@ cl <- NULL
 # Initiate cluster ---------
 cl <- makeCluster(20)
 clusterCall(cl, function() {
-  library(glmnet);library(mvtnorm);library(parallel);library(data.table);library(stats)})
+  library(glmnet);library(mvtnorm);library(parallel);library(data.table);library(stats);library(xgboost)})
 # --------------
 
 residuals_test_correct <- predict(fit, X[isNotTrain,])[,,1] - Y[isNotTrain,]
@@ -60,7 +60,7 @@ workerfun <- function(i) {
     LL_swapped_mnorm <- LL_mnorm(residuals_test_swapped)
     LL_swapped_norm  <- LL_norm( residuals_test_swapped)
     LL_swapped_dixit <- LL_dixit(residuals_test_swapped)
-    LL_swapped_same  <- LL_dixit(residuals_test_swapped)
+    LL_swapped_same  <- LL_same(residuals_test_swapped)
 
     dt1 <- data.table::data.table(
       guide = i,
