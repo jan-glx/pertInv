@@ -47,26 +47,26 @@ dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
     res_SSq = c(res_SSq(matrix(rep(1,nrow(guide_matrix),ncol=1))),
                 res_SSq(cbind(1,guide_matrix)),
                 res_SSq(cbind(1,capture)),
-                res_SSq(cbind(1,batch)),
-                res_SSq(cbind(1,capture,batch)),
-                res_SSq(cbind(1,guide_matrix,capture,batch))
+                res_SSq(cbind(batch)),
+                res_SSq(cbind(capture,batch)),
+                res_SSq(cbind(guide_matrix,capture,batch))
                 ),
-    method = rep(c("1","1+guides","1+capture","1+batch","1+capture+batch","1+guides+capture+batch"), each=length(isTest)),
+    method = rep(c("intercept_only","+guides","+capture","+batch","+capture+batch","+guides+capture+batch"), each=length(isTest)),
     cell = isTest
   )
   setTxtProgressBar(pb,fold)
   dt
 }))
 
-dt2=dt[method!="1"][dt[method=="1"], res_SSq_1 := i.res_SSq, on=.(cell)]
+dt2=dt[method!="intercept_only"][dt[method=="intercept_only"], res_SSq_1 := i.res_SSq, on=.(cell)]
 
 R2 = function(dt,idx) 1-dt[idx,sum(res_SSq)]/sum(dt[idx,sum(res_SSq_1)])
 R2_dt = dt2[,  {boot.out= boot(.SD, R2, 1000); as.list(c(R2(.SD),boot.ci(boot.out,type="basic")$basic[4:5]))},by=method]
 setnames(R2_dt,c("method","R^2","upper","lower"))
 
 figure(
-  "Variance explained through different adjustments - log(1+counts)",
-  ggplot(R2_dt, aes(x=substr(method,2,99),y=`R^2`)) + geom_bar(stat="identity") +
+  "Variance explained through different adjustments - log2(1+count)",
+  ggplot(R2_dt, aes(x=method,y=`R^2`)) + geom_bar(stat="identity") +
     geom_errorbar(aes(ymin=lower, ymax=upper),width=2/3) +
     coord_flip() + ylab(expression(R[CV]^2)) + xlab("")
 )
