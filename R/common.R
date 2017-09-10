@@ -153,3 +153,6 @@ geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", p
   layer(data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin, position = position, show.legend = show.legend, inherit.aes = inherit.aes, params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, na.rm = na.rm, ...))
 }
 
+
+#' @export
+cross_entropy_loss <-  function(p, label) -sum(log((!label)+(2*label-1)*p))/length(label)
