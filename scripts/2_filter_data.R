@@ -90,6 +90,7 @@ covariates.dt <- cbc_gbc_dict.dt[cells_summary.dt[cellnames.dt, on="cell_id"], o
 
 guide_matrix <- covariates.dt[!is.na(guide_id), as.matrix(Matrix::sparseMatrix(cell_id2, guide_id, x=TRUE))]
 colnames(guide_matrix)<- covariates.dt[!is.na(guide_id),guide[1],keyby=guide_id][,V1]
+rownames(guide_matrix)<- rownames(count_matrix)
 
 covariates.dt[is.na(guide),guide:="none"]
 
