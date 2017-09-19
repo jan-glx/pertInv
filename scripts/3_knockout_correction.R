@@ -4,7 +4,6 @@ library(ggplot2)
 library(glmnet)
 library(mvtnorm)
 library(parallel)
-library(xgboost)
 
 load(file="results/count_matrix.RData")
 load(file="results/guide_matrix.RData")
@@ -16,9 +15,9 @@ isTrain <- sample(nrow(X), ceiling(nrow(X)*2/3))
 isNotTrain <- seq_len(nrow(X))[-isTrain]
 isTestInNotTrain <- sample(rep(c(FALSE,TRUE), ceiling(length(isNotTrain)/2)), length(isNotTrain))
 
-fit <- glmnet::glmnet(X[isTrain,], Y[isTrain,], alpha=0.5, lambda = 0.0005, family = "mgaussian", standardize = FALSE)
+fit <- lm(Y[isTrain,] ~., as.data.table(X[isTrain,]))
 
-residuals_train <- predict(fit, X[isTrain,])[,,1] - Y[isTrain,]
+residuals_train <- predict(fit, as.data.table(X[isTrain,])) - Y[isTrain,]
 
 sigma <- cov(residuals_train)
 sigma_res <- sqrt(diag(sigma))
@@ -26,14 +25,15 @@ sigma_genes <- apply(Y[isNotTrain,], MARGIN = 2, sd)
 
 theta0 <- colSums(X[isNotTrain,])/length(isNotTrain)
 
-cl <- NULL
+cl <- NULL # cl <- makeCluster(20)
 # Initiate cluster ---------
-cl <- makeCluster(20)
-clusterCall(cl, function() {
-  library(glmnet);library(mvtnorm);library(parallel);library(data.table);library(stats);library(xgboost)})
+
+if (!is.null(cl)) clusterCall(cl, function() {
+  library(glmnet);library(mvtnorm);library(parallel);library(data.table);library(stats)
+})
 # --------------
 
-residuals_test_correct <- predict(fit, X[isNotTrain,])[,,1] - Y[isNotTrain,]
+residuals_test_correct <- predict(fit, as.data.table(X[isNotTrain,])) - Y[isNotTrain,]
 LL_mnorm <- function(res) mvtnorm::dmvnorm(res, sigma=sigma,                    log=TRUE)
 LL_norm  <- function(res)    rowSums(dnorm(res,    sd=sigma_res,                log = TRUE))
 LL_dixit <- function(res)    rowSums(dnorm(res,    sd=sqrt(sigma_genes^2+0.25), log = TRUE))
@@ -49,13 +49,14 @@ LL_correct_same <- LL_same(residuals_test_correct)
 if (!is.null(cl)) clusterExport(cl, ls())
 
 ni <- seq_len(ncol(X)) # ni <- c(11,37,53,54)
+pb = txtProgressBar(min = 0, max = length(ni), initial = 0,  style = 3)
 
 workerfun <- function(i) {
   tryCatch({
-    X  <-  guide_matrix[isNotTrain,]
-    guide_detected <- X[,i]
-    X[,i] <- !X[,i]
-    residuals_test_swapped <- stats::predict(fit, X)[,,1] - Y[isNotTrain,]
+    X_  <-  guide_matrix[isNotTrain,]
+    guide_detected <- X_[,i]
+    X_[,i] <- !X_[,i]
+    residuals_test_swapped <- stats::predict(fit, as.data.table(X_)) - Y[isNotTrain,]
 
     LL_swapped_mnorm <- LL_mnorm(residuals_test_swapped)
     LL_swapped_norm  <- LL_norm( residuals_test_swapped)
@@ -76,21 +77,8 @@ workerfun <- function(i) {
     dt1[(guide_detected), LL_not_perturbed:=LL_swapped]
     dt1[(!guide_detected), LL_perturbed:=LL_swapped]
     dt1[(!guide_detected), LL_not_perturbed:=LL_correct]
-    dt1[, p_ko:=1/(1+exp(-(LL_perturbed-LL_not_perturbed+log(theta0)-log(1-theta0))))]
-
-
-    dtrain <- xgb.DMatrix(Y[isTrain,], label =  guide_matrix[isTrain, i])
-    #xgb.cv(list(objective="binary:logistic", eta=0.02,eval_metric="logloss",lambda=1,alpha=1), dtrain, nfold=3, nrounds=100)
-    #fitted_booster <- xgb.train(list(objective="binary:logistic", eta=0.02,eval_metric="logloss",lambda=1,alpha=1), dtrain, nrounds=100)
-    fitted_booster <- xgb.train(list(booster="gbtree",objective="binary:logistic", eta=0.02,eval_metric="logloss",
-                                     subsample=0.8,colsample_bytree=0.8,max_depth=1,eval_metric="logloss"), dtrain, nrounds=300)
-    dt2 <- data.table(guide=i,
-                      p_ko=predict(fitted_booster, Y[isNotTrain,]),
-                      guide_detected=guide_matrix[isNotTrain, i],
-                      LL_method="xgboost",
-                      isTest = isTestInNotTrain)
-    print(".")
-    merge(dt1, dt2, all=TRUE)
+    setTxtProgressBar(pb,fold)
+    dt1
   },
   error=function(e) e
   )
@@ -101,18 +89,16 @@ dt <- rbindlist(if (!is.null(cl)) parLapply(cl,ni, workerfun) else lapply(ni, wo
 dt[,guide_name:=colnames(guide_matrix)[guide]]
 
 
-cross_entropy_lossf <-  function(p,label) -sum(log((!label)+(2*label-1)*p))/length(label)
 
-cross_entropy_loss <-  function(ff,y, LLR) sum(log(1+exp(-(ff[1]*LLR+ff[2])*(2*y-1))))
+cross_entropy_loss_transformed <-  function(ff,y, LLR) sum(log(1+exp(-(ff[1]*LLR+ff[2])*(2*y-1))))
 
 dt[,LLR:=LL_perturbed-LL_not_perturbed]
-dt[LL_method=="xgboost", LLR:=-log(1/p_ko-1)]
-dt[LL_method!="xgboost", p_ko:=1/(1+exp(-(LLR+log(theta0)-log(1-theta0)))) ]
+dt[, p_ko:=1/(1+exp(-(LLR+log(theta0)-log(1-theta0)))) ]
 
 
 
 dt[, c("scaling_factor","offset"):=
-     as.list(optim(par = c(1,0.001), fn = cross_entropy_loss, y=guide_detected[!isTest], LLR=LLR[!isTest])$par),
+     as.list(optim(par = c(1,0.001), fn = cross_entropy_loss_transformed, y=guide_detected[!isTest], LLR=LLR[!isTest])$par),
   by= .(LL_method,guide)]
 
 dt[, p_ko_fitted := 1/(1+exp(-(scaling_factor*LLR+offset))), by= .(LL_method,guide)]
@@ -131,7 +117,7 @@ dt <- dt[(isTest)]
 res <- melt(dt,measure.vars = c("p_ko","p_ko_fitted"),value.name = "p_ko")[, method:=paste0(LL_method,variable)][(guide_detected) ,
    .(frac_confidently_perturbed = mean(p_ko>0.10)),by=.(guide,guide_name,method)]
 
-ggplot(res[method=="samep_ko_fitted"], aes(y=frac_confidently_perturbed,x=method))+geom_violin()
+ggplot(res[method=="dixitp_ko_fitted"], aes(y=frac_confidently_perturbed,x=method))+geom_violin()
 
 
 res <- dt[, .(x_entropy_loss=cross_entropy_lossf(p_ko,guide_detected),
@@ -143,6 +129,10 @@ res[,r_fit:= rank(x_entropy_loss_fit),by=guide]
 res[,r:= rank(x_entropy_loss),by=guide]
 res[,sum(r_fit),by=LL_method]
 res[,sum(r),by=LL_method]
+
+dt[, .(x_entropy_loss=cross_entropy_lossf(p_ko,guide_detected),
+       x_entropy_loss_fit=cross_entropy_lossf(p_ko_fitted,guide_detected)),
+   by=.(LL_method)]
 
 
 dt <- dt[guide>50 | guide==36]
