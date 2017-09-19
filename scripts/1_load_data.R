@@ -2,7 +2,7 @@ library(pertInv)
 
 # Load count data -----------------------------------
 data_folder <- 'data_raw/'
-data_set = "GSM2396859_k562_tfs_13"
+data_set = "GSM2396857_dc_0hr"
 # "GSM2396861_k562_ccycle"
 # "GSM2396858_k562_tfs_7"
 # "GSM2396859_k562_tfs_13"

@@ -46,6 +46,8 @@ figure("Distribution counts over gene",
 )
 genes_summary.dt[,.N,by=keep]
 
+cbc_gbc_dict.dt=cbc_gbc_dict.dt[guide!="m_Egr1_3",] #m_Egr1_3 is found in onlye one cell
+
 
 cells_summary.dt <-
   counts.dt[,.(total_counts=sum(count),genes_with_counts=.N), by=cell_id
@@ -53,7 +55,7 @@ cells_summary.dt <-
 cells_summary.dt[,n_guides:=0L]
 cells_summary.dt[cbc_gbc_dict.dt[,.(n_guides=.N),by=cell_id], n_guides:=i.n_guides, on="cell_id"]
 
-#cells_summary.dt[n_guides>1, keep := FALSE]
+cells_summary.dt[n_guides==0, keep := FALSE]
 
 cells_summary.dt[,CDR:=genes_with_counts/n_genes]
 cells_summary.dt[,total_counts_scaled:=total_counts/max(total_counts)]
