@@ -34,10 +34,10 @@ if (!is.null(cl)) clusterCall(cl, function() {
 # --------------
 
 residuals_test_correct <- predict(fit, as.data.table(X[isNotTrain,])) - Y[isNotTrain,]
-LL_mnorm <- function(res) mvtnorm::dmvnorm(res, sigma=sigma,                    log=TRUE)
-LL_norm  <- function(res)    rowSums(dnorm(res,    sd=sigma_res,                log = TRUE))
-LL_dixit <- function(res)    rowSums(dnorm(res,    sd=sqrt(sigma_genes^2+0.25), log = TRUE))
-LL_same <- function(res)    rowSums(dnorm(res,    sd=sqrt(sum(sigma_res^2)), log = TRUE))
+LL_mnorm <- function(res) mvtnorm::dmvnorm(res, sigma=sigma, log=TRUE)
+LL_norm  <- function(res) mvtnorm::dmvnorm(res, sigma=diag(diag(sigma)), log=TRUE)
+LL_dixit <- function(res) mvtnorm::dmvnorm(res, sigma=diag(sigma_genes^2+0.25), log=TRUE)
+LL_same <- function(res)  mvtnorm::dmvnorm(res, sigma=diag(rep(sum(sigma_res^2), length(sigma_res))), log=TRUE)
 
 
 LL_correct_mnorm <- LL_mnorm(residuals_test_correct)
@@ -48,40 +48,37 @@ LL_correct_same <- LL_same(residuals_test_correct)
 
 if (!is.null(cl)) clusterExport(cl, ls())
 
-ni <- seq_len(ncol(X)) # ni <- c(11,37,53,54)
+ni <- seq_len(ncol(X)) #
+ni <- c(11,37,53,54)
 pb = txtProgressBar(min = 0, max = length(ni), initial = 0,  style = 3)
 
 workerfun <- function(i) {
-  tryCatch({
-    X_  <-  guide_matrix[isNotTrain,]
-    guide_detected <- X_[,i]
-    X_[,i] <- !X_[,i]
-    residuals_test_swapped <- stats::predict(fit, as.data.table(X_)) - Y[isNotTrain,]
+  X_  <-  guide_matrix[isNotTrain,]
+  guide_detected <- X_[,i]
+  X_[,i] <- !X_[,i]
+  residuals_test_swapped <- stats::predict(fit, as.data.table(X_)) - Y[isNotTrain,]
 
-    LL_swapped_mnorm <- LL_mnorm(residuals_test_swapped)
-    LL_swapped_norm  <- LL_norm( residuals_test_swapped)
-    LL_swapped_dixit <- LL_dixit(residuals_test_swapped)
-    LL_swapped_same  <- LL_same(residuals_test_swapped)
+  LL_swapped_mnorm <- LL_mnorm(residuals_test_swapped)
+  LL_swapped_norm  <- LL_norm( residuals_test_swapped)
+  LL_swapped_dixit <- LL_dixit(residuals_test_swapped)
+  LL_swapped_same  <- LL_same(residuals_test_swapped)
 
-    dt1 <- data.table::data.table(
-      guide = i,
-      guide_detected = guide_detected,
-      LL_swapped = c(LL_swapped_mnorm, LL_swapped_norm, LL_swapped_dixit, LL_swapped_same),
-      LL_correct = c(LL_correct_mnorm, LL_correct_norm, LL_correct_dixit, LL_correct_same),
-      LL_method = rep(c("mvnorm", "norm", "dixit", "same"), each=length(LL_swapped_mnorm)),
-      theta0 = theta0[i],
-      isTest = isTestInNotTrain
-    )
-
-    dt1[(guide_detected), LL_perturbed:=LL_correct]
-    dt1[(guide_detected), LL_not_perturbed:=LL_swapped]
-    dt1[(!guide_detected), LL_perturbed:=LL_swapped]
-    dt1[(!guide_detected), LL_not_perturbed:=LL_correct]
-    setTxtProgressBar(pb,fold)
-    dt1
-  },
-  error=function(e) e
+  dt1 <- data.table::data.table(
+    guide = i,
+    guide_detected =  rep(guide_detected, 4),
+    LL_swapped = c(LL_swapped_mnorm, LL_swapped_norm, LL_swapped_dixit, LL_swapped_same),
+    LL_correct = c(LL_correct_mnorm, LL_correct_norm, LL_correct_dixit, LL_correct_same),
+    LL_method = rep(c("mvnorm", "norm", "dixit", "same"), each=length(LL_swapped_mnorm)),
+    theta0 = theta0[i],
+    isTest = isTestInNotTrain
   )
+
+  dt1[(guide_detected), LL_perturbed:=LL_correct]
+  dt1[(guide_detected), LL_not_perturbed:=LL_swapped]
+  dt1[(!guide_detected), LL_perturbed:=LL_swapped]
+  dt1[(!guide_detected), LL_not_perturbed:=LL_correct]
+  setTxtProgressBar(pb,i)
+  dt1
 }
 
 dt <- rbindlist(if (!is.null(cl)) parLapply(cl,ni, workerfun) else lapply(ni, workerfun))
@@ -163,9 +160,7 @@ ggsave(paste0("results/p_density.png"), dpi = 400, width = 8, height=8)
 
 
 
-
-
-for (method in c("mvnorm", "norm", "dixit","same","xgboost")) {
+for (method in c()){#"mvnorm", "norm", "dixit","same","xgboost")) {
   ggplot(dt[LL_method == method], aes(x= p_ko_fitted, color=guide_detected, linetype=LL_method))+
     geom_density() + facet_wrap("guide_name", scales = "free")
   ggsave(paste0("results/p_fitted_density_",method,".png"), dpi = 400, width = 12, height=8)
