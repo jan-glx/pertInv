@@ -156,3 +156,12 @@ geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", p
 
 #' @export
 cross_entropy_loss <-  function(p, label) -sum(log((!label)+(2*label-1)*p))/length(label)
+
+
+#' @export
+mean_sd <- function (x, mult = 1)
+{
+  std <- mult * stats::sd(x, na.rm=TRUE)
+  mean <- mean(x, na.rm=TRUE)
+  data.frame(y = mean, ymin = mean - std, ymax = mean + std)
+}
