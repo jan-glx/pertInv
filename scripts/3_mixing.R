@@ -1,7 +1,10 @@
+# -----------------
 library(pertInv)
 load(file="results/count_matrix.RData")
 load(file="results/guide_matrix.RData")
 covariates.dt = fread("results/covariates.dt.csv")
+
+# ---------------
 library(REBayes)
 E_total = unname(rowSums(count_matrix))
 E_cdr = unname(rowSums(count_matrix>0))
@@ -47,7 +50,7 @@ ggplot(data = as.data.frame(f$stats)) +
 
 # ------------------
 
-deconv2 <-function (tau, X, y, Q, P, n = 40, family = c("Poisson", "PoissonExp", "Normal", "Binomial"), ignoreZero = TRUE, deltaAt = NULL, c0 = 1, scale = TRUE,
+deconv2 <-function (tau, X, y, Q, P, n = 40, family = c("Poisson", "PoissonExp","PoissonExpLog", "Normal", "Binomial"), ignoreZero = TRUE, deltaAt = NULL, c0 = 1, scale = TRUE,
                     pDegree = 5, aStart = 1,  ...)
 {
   family <- match.arg(family)
@@ -81,6 +84,22 @@ deconv2 <-function (tau, X, y, Q, P, n = 40, family = c("Poisson", "PoissonExp",
         P <- sapply(tau, function(lam) dpois(x = y, lambda = lam*X)/(1 - exp(-lam*X)))
       } else {
         P <- sapply(tau, function(lam) dpois(x = y, lambda = lam*X))
+      }
+
+      Q <- cbind(1, scale(splines::ns(tau, pDegree), center = TRUE, scale = FALSE))
+      Q <- apply(Q, 2, function(w) w/sqrt(sum(w * w)))
+      #browser()
+      y <- 1
+    } else if (family == "PoissonExpLog") {
+
+      if (missing(tau)) {
+        tau <- seq(log(min(y+1)/10), log(max(y)/mean(X)), length.out = n)
+        m <- length(tau)
+      }
+      if (ignoreZero) {
+        P <- sapply(tau, function(lam) dpois(x = y, lambda = exp(lam)*X)/(1 - exp(-exp(lam)*X)))
+      } else {
+        P <- sapply(tau, function(lam) dpois(x = y, lambda = exp(lam)*X))
       }
 
       Q <- cbind(1, scale(splines::ns(tau, pDegree), center = TRUE, scale = FALSE))
@@ -212,10 +231,51 @@ ggplot(data = as.data.table(f$stats)) +
   labs(x = expression(theta), y = expression(hat(g)))
 # -------------
 
+ii <- sample(ncol(count_matrix), 6)
+
+dt <- rbindlist(lapply(ii, function(i) {
+  y = count_matrix[,i]
+  as.data.table(deconv2(seq(log(1/100), log(10*mean(y)), length.out = 100), X= 1, y = y,
+                        family ="PoissonExpLog", ignoreZero = FALSE, pDegree=10,c0=20)$stats)[,gene:=colnames(count_matrix)[i]]
+}))
+
+dt2 <-data.table(melt(count_matrix[,ii]))
+setnames(dt2, c("cell","gene", "count"))
+
+dt[,panel:="1"]
+dt2[,panel:="2"]
+ddt = rbindlist(list(dt,dt2),fill=TRUE)
 
 
+figure("Bayes deconv: hist & g",
+       ggplot(data = ddt) +
+         geom_smooth(data= ddt[panel=="1"],stat="identity", mapping = aes(x = theta, y = g, ymin = g-SE.g, ymax =g+ SE.g, color=gene)) +
+         labs(x = expression(log(theta)), y = expression(hat(g)(theta))) +
+         geom_histogram(data=ddt[panel=="2"], aes(x=log(pmax(count,1/100)), y=..count.., color=gene), position=position_dodge(0.1),fill=NA,breaks = log(c(1/100,1:100)))+ #(log(c(1/100,1:10))+log(1:11))/2
+         coord_cartesian(xlim=c(-5,5))+facet_grid(panel~.,scales="free_y")
+)
 
+figure("Bayes deconv: ECDF & G",
+       ggplot(data = ddt) +
+         geom_smooth(data= ddt[panel=="1"],stat="identity", mapping = aes(x = exp(theta), y = G, ymin = G-SE.G, ymax =G+ SE.G, color=gene)) +
+         labs(x = expression(theta), y = expression(hat(G)(theta))) +
+         stat_ecdf(data=ddt[panel=="2"], aes(x=count, color=gene))+ #(log(c(1/100,1:10))+log(1:11))/2   log(pmax(count,1/10000))
+         coord_cartesian(xlim=c(0,10))
+)
+figure("Bayes deconv: ECDF & G (log scale)",
+       ggplot(data = ddt) +
+         geom_smooth(data= ddt[panel=="1"],stat="identity", mapping = aes(x = theta, y = G, ymin = G-SE.G, ymax =G+ SE.G, color=gene)) +
+         labs(x = expression(log(theta)), y = expression(hat(G)(theta))) +
+         stat_ecdf(data=ddt[panel=="2"], aes(x=count, color=gene))+ #(log(c(1/100,1:10))+log(1:11))/2   log(pmax(count,1/10000))
+         coord_cartesian(xlim=c(-5,3))
+)
 
+# ---------------
+
+y = as.vector(count_matrix)
+dt = as.data.table(deconv2(seq(log(1/100), log(10*mean(y)), length.out = 100), X= 1, y = y,
+                           family ="PoissonExpLog", ignoreZero = FALSE, pDegree=10,c0=20)$stats)
+# -------------
 
 i <- sample(ncol(count_matrix), 1)
 i_guide <-  sample(ncol(guide_matrix), 1)
@@ -232,7 +292,7 @@ f <- deconv2(seq(0, mean(y)*5, length.out = 100)[-1], X= (X/mean(X))[!ss], y = y
 f <- deconv2(seq(0, mean(y)*5, length.out = 100)[-1], X= (X/mean(X))[!ss], y = y[!ss], aStart = f$mle,
              family ="PoissonExp", ignoreZero = FALSE, pDegree=10,c0=5)
 f2 <- deconv2(seq(0, mean(y)*5, length.out = 100)[-1], X= (X/mean(X))[ss], y = y[ss], aStart = f$mle,
-             family ="PoissonExp", ignoreZero = FALSE, pDegree=10,c0=5)
+              family ="PoissonExp", ignoreZero = FALSE, pDegree=10,c0=5)
 
 #figure("Poisson-P-Spline-mixture (Bayesian deconvolution) exposure=1",
 ggplot(data = rbind(as.data.table(f$stats)[,guide:=paste0(colnames(guide_matrix)[i_guide],"-")],as.data.table(f2$stats)[,guide:=paste0(colnames(guide_matrix)[i_guide],"+")])) +
