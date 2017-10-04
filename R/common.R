@@ -11,7 +11,7 @@ figure <- function(title, p, sub_title = NULL, ...){
   RESULT_FOLDER <- "results"
   cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".pdf")), ...)
   p <- p + ggplot2::ggtitle(title, sub_title)
-  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".png")), dpi=600, ...)
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".png")),  ...)
   p
 }
 
@@ -164,4 +164,67 @@ mean_sd <- function (x, mult = 1)
   std <- mult * stats::sd(x, na.rm=TRUE)
   mean <- mean(x, na.rm=TRUE)
   data.frame(y = mean, ymin = mean - std, ymax = mean + std)
+}
+
+#' @export
+cell_loglikelihoods <- function(res, sigma) apply(res, MARGIN=1, function(x) sum(dnorm(x, sd=sigma,log = TRUE)))
+
+#' @export
+quantile_ci <-  function(y, p=0.5, conf.level = 0.95, alpha = 1-conf.level) {
+  rbindlist(lapply(p, function(p) {
+    m <-  quantile(y, probs=p)
+    n <-  length(y)
+    lower_i <- qbinom(alpha/2, n, p)
+    upper_i <- 1+qbinom(alpha/2, n, p, lower.tail=FALSE)
+    ymin <- -Inf
+    ymax <- Inf
+    if (lower_i>0 && upper_i<n) {
+      qs <- sort(y, partial=c(lower_i,upper_i))[c(lower_i,upper_i)]
+      ymin <-  qs[1]
+      ymax <-  qs[2]
+    } else if (lower_i>0) {
+      ymin <- sort(y, partial=lower_i)[lower_i]
+    } else if (upper_i<n){
+      ymax <- sort(y, partial=upper_i)[upper_i]
+    }
+    data.table(ymin, y=m, ymax, p = p)
+  }))
+}
+
+#' @export
+PositionJitterNormal <- ggproto("PositionJitterNormal", PositionJitter, compute_layer = function(self, data, params, panel){
+  trans_x <- if (params$width > 0)
+    function(x) x+rnorm(length(x), sd= params$width)
+  trans_y <- if (params$height > 0)
+    function(x) x+rnorm(length(x), sd= params$height)
+  transform_position(data, trans_x, trans_y)
+})
+
+#' @export
+position_jitter_normal <- function (width = NULL, height = NULL)
+{
+  ggproto(NULL, PositionJitterNormal, width = width, height = height)
+}
+
+
+#' @export
+geom_jitter_normal <-function (mapping = NULL, data = NULL, stat = "identity", position = "jitter",
+                               ..., width = NULL, height = NULL, na.rm = FALSE, show.legend = NA,
+                               inherit.aes = TRUE)
+{
+  if (!missing(width) || !missing(height)) {
+    if (!missing(position)) {
+      stop("Specify either `position` or `width`/`height`",
+           call. = FALSE)
+    }
+    position <- position_jitter_normal(width = width, height = height)
+  }
+  layer(data = data, mapping = mapping, stat = stat, geom = GeomPoint,
+        position = position, show.legend = show.legend, inherit.aes = inherit.aes,
+        params = list(na.rm = na.rm, ...))
+}
+
+#' @export
+sample.dt <- function(x, size, replace= FALSE, prob = NULL) {
+  x[sample(nrow(x), size, replace, prob)]
 }
