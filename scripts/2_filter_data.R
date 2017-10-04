@@ -99,3 +99,7 @@ covariates.dt[is.na(guide),guide:="none"]
 fwrite(covariates.dt,"results/covariates.dt.csv")
 save(count_matrix,file="results/count_matrix.RData")
 save(guide_matrix,file="results/guide_matrix.RData")
+fwrite(as.data.table(count_matrix, keep.rownames = TRUE), file="results/count_matrix.csv")
+fwrite(as.data.table(guide_matrix, keep.rownames = TRUE), file="results/guide_matrix.csv")
+feather::write_feather(as.data.table(count_matrix, keep.rownames = TRUE), "results/count_matrix.feather")
+feather::write_feather(as.data.table(guide_matrix, keep.rownames = TRUE), "results/guide_matrix.feather")
