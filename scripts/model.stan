@@ -1,16 +1,16 @@
 data {
 int<lower=0> N_cells;
 int<lower=0> N_genes;
-int<lower=0> N_guides;
+int<lower=0> N_gRNAs;
 int<lower=0> counts[N_genes*N_cells];
-int<lower=0,upper=1> guide_detected[N_cells,N_guides];
+int<lower=0,upper=1> guide_detected[N_cells,N_gRNAs];
 }
 
 parameters {
 vector[N_genes*N_cells] ln_expression_noise;
-matrix[N_guides,N_cells] knockout;
-matrix[N_genes,N_guides] knockout_effect;
-vector<lower=0>[N_guides] lambda_guide;
+matrix[N_gRNAs,N_cells] knockout;
+matrix[N_genes,N_gRNAs] knockout_effect;
+vector<lower=0>[N_gRNAs] lambda_guide;
 row_vector[N_cells] ln_sf; // 'size factor' or 'library size'
 vector<lower=0>[N_genes] gene_variance;
 vector[N_genes] ln_mean_expression;
@@ -21,27 +21,28 @@ real<lower=0> beta_gene_variance;
 real<lower=0> sd_ln_mean_expression;
 real mean_ln_mean_expression;
 vector<lower=0,upper=1>[N_cells] remaining_time;
-vector<lower=0,upper=1>[N_guides] detection_prob;
+vector<lower=0,upper=1>[N_gRNAs] detection_prob;
 real<lower=0,upper=1> false_detection_prob;
-vector[N_guides] mean_knockout;
-vector<lower=0>[N_guides] sd_knockout;
+real<lower=0,upper=1> pos_selection_prob;
+real<lower=0,upper=1> neg_selection_prob;
+vector[N_gRNAs] mean_knockout;
+vector<lower=0>[N_gRNAs] sd_knockout;
 }
 
 transformed parameters {
-real<lower=0> T;
-T = sum(lambda_guide);
 }
 
 model {
 
-vector[N_guides] sum_term;
-vector[N_guides] sum_term_norm;
-vector[N_guides] sum_term_present_true;
-real lpdf_detected_given_present_true;
-real lpdf_ko_detected_given_present_true;
-real lpdf_detected_given_present_false;
-real lpdf_ko_detected_given_present_false;
-real tmp;
+real lpdf_detected_present_true;
+real lpdf_ko_detected_present_true;
+real lpdf_detected_present_false;
+real lpdf_ko_detected_present_false;
+real prod_term;
+real prod_of_sums_term;
+real prod_term_norm;
+real prod_of_sums_term_norm;
+matrix[N_gRNAs, N_cells] llr_guide_present;
 
 //alpha_gene_variance = 1.0;
 target += gamma_lpdf(beta_gene_variance | 4, 10);
@@ -60,36 +61,36 @@ target += normal_lpdf(mean_ln_mean_expression | 0, 10);
 target += normal_lpdf(mean_knockout | 0, 10);
 target += inv_gamma_lpdf(sd_knockout | 5, 5);
 
-target += exponential_lpdf(1-remaining_time| T);
-
-target += inv_gamma_lpdf(lambda_guide | 10, (10.0-1)/N_guides);
+target += inv_gamma_lpdf(lambda_guide | 10, (10.0-1)/N_gRNAs);
 target += beta_lpdf(detection_prob | 6, 3);
 
-target += beta_lpdf(false_detection_prob | 1, 100*N_guides);
+target += beta_lpdf(false_detection_prob | 1, 100*N_gRNAs);
 
 
-for (i in 1:N_cells) {
-  for (k in 1:N_guides) {
+for (c in 1:N_cells) {
+  prod_of_sums_term = log(pos_selection_prob);
+  prod_term = log(neg_selection_prob-pos_selection_prob);
+  prod_of_sums_term_norm = prod_of_sums_term;
+  prod_term_norm = prod_term;
+  for (r in 1:N_gRNAs) {
 
-    lpdf_detected_given_present_true = bernoulli_lpmf(guide_detected[i,k] | detection_prob[k]);
-    lpdf_ko_detected_given_present_true = normal_lpdf(knockout[k,i] | mean_knockout[k], sd_knockout[k]) + lpdf_detected_given_present_true;
+    lpdf_detected_present_true = bernoulli_lpmf(guide_detected[c,r] | detection_prob[r]) + log1m(exp(-lambda_guide[r]));
+    lpdf_ko_detected_present_true = normal_lpdf(knockout[r,c] | mean_knockout[r], sd_knockout[r]) + lpdf_detected_present_true;
 
-    lpdf_detected_given_present_false = bernoulli_lpmf(guide_detected[i,k]| false_detection_prob);
-    lpdf_ko_detected_given_present_false = normal_lpdf(knockout[k,i] | 0, 0.001) +lpdf_detected_given_present_false;
-    tmp = log_mix(exp(-lambda_guide[k] * remaining_time[i]),
-                      lpdf_ko_detected_given_present_true,
-                      lpdf_ko_detected_given_present_false);
-    target += tmp;
-    sum_term[k] = log(lambda_guide[k])-log(T)+lpdf_ko_detected_given_present_true-tmp;
+    lpdf_detected_present_false = bernoulli_lpmf(guide_detected[c,r]| false_detection_prob) -lambda_guide[r];
+    lpdf_ko_detected_present_false = normal_lpdf(knockout[r,c] | 0, 0.001) + lpdf_detected_present_false;
 
-    tmp = log_mix(exp(-lambda_guide[k] * remaining_time[i]),
-                  lpdf_detected_given_present_true,
-                  lpdf_detected_given_present_false);
-    target += -tmp; // for normalization
-    sum_term_norm[k] = log(lambda_guide[k])-log(T)+lpdf_detected_given_present_true-tmp;
+    prod_of_sums_term = prod_of_sums_term + log_sum_exp(lpdf_ko_detected_present_false, lpdf_ko_detected_present_true);
+    prod_term = prod_term + lpdf_ko_detected_present_false;
+
+    prod_of_sums_term_norm = prod_of_sums_term_norm + log_sum_exp(lpdf_detected_present_false, lpdf_detected_present_true);
+    prod_term_norm = prod_term_norm + lpdf_detected_present_false;
+
+    llr_guide_present[r,c] = lpdf_ko_detected_present_true + log(pos_selection_prob) -
+      (lpdf_ko_detected_present_false  +  log_mix(exp(-sum(lambda_guide)), neg_selection_prob, pos_selection_prob));
   }
-  target += log_sum_exp(sum_term);
-  target += -log_sum_exp(sum_term_norm);
+  target += log_sum_exp(prod_of_sums_term, prod_of_sums_term);
+  target += -log_sum_exp(prod_of_sums_term_norm, prod_term_norm);
 }
 
 
@@ -102,16 +103,3 @@ target += poisson_lpmf(counts  | exp(
 ));
 }
 
-
-generated quantities {
-matrix[N_guides, N_cells] llr_guide_present;
-real p_g;
-
-for (k in 1:N_guides) {
-  for (i in 1:N_cells) {
-    p_g = lambda_guide[k]/T+(1-lambda_guide[k]/T)*exp(-lambda_guide[k] * remaining_time[i]);
-    llr_guide_present[k,i] = bernoulli_lpmf(guide_detected[i,k]| 0.00001) + normal_lpdf(knockout[k,i] | 0, 0.001) + log(p_g)-
-      (log1m(p_g) + bernoulli_lpmf(guide_detected[i,k] | detection_prob[k]) + normal_lpdf(knockout[k,i] | mean_knockout[k], sd_knockout[k]));
-  }
-}
-}
