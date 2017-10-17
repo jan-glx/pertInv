@@ -20,27 +20,29 @@ options(mc.cores = parallel::detectCores())
 
 # ---------------------------
 m1 <-  stan_model("scripts/model.stan")
+
 # ======
-
-#dat <- list(N_cells = nrow(count_matrix), N_genes = ncol(count_matrix), N_guides = ncol(guide_matrix), counts = as.vector(t(count_matrix)),
-#            guide_detected =  lapply(1:ncol(guide_matrix), function(i) as.numeric(guide_matrix[,i])));
-dat <- list(N_cells = nrow(count_matrix), N_genes = ncol(count_matrix), N_guides = ncol(guide_matrix), counts = as.vector(t(count_matrix)),
+dat <- list(N_cells = nrow(count_matrix), N_genes = ncol(count_matrix), N_gRNAs = ncol(guide_matrix), counts = as.vector(t(count_matrix)),
             guide_detected =  1*guide_matrix);
-
-#fit <- stan(model_code = stanmodelcode, model_name = "example",
-#            data = dat, iter = 12, chains = 3, sample_file = 'norm.csv',
-#         #   control = list(adapt_delta = 0.99),
-#            verbose = TRUE)
-fit <- vb(m1, data = dat, sample_file = 'norm2.csv')
+fit <- vb(m1, data = dat, sample_file = 'norm2.csv')#, iter=100000, adapt_engaged=FALSE, eta=0.0001)
 # ---------------------------------------
+
+fit <- vb(m1, data = dat, sample_file = 'norm2.csv')#, iter=100000, adapt_engaged=FALSE, eta=0.0001)
+
+fit <- sampling(m1, data = dat)
+#--------------------------------------
 print(fit)
 stan_trace(fit, pars = c("mean_ln_mean_expression","ln_mean_expression[1]","ln_expression_noise[1]","sd_sf","ln_sf[1]","beta_gene_variance","gene_variance[1]"))
 
 # extract samples
-e <- extract(fit, permuted = TRUE, inc_warmup = FALSE) # return a list of arrays
+e <- extract(fit) # return a list of arrays
 ggplot(melt(e$ln_mean_expression),aes(x=as.factor(Var2),y=value))+geom_boxplot()
 ggplot(melt(e$ln_sf),aes(x=as.factor(Var2),y=value))+geom_boxplot()
 ggplot(melt(e$llr_guide_present[,,1]),aes(x=as.factor(Var2),y=value))+geom_boxplot()
+ggplot(melt(e$detection_prob),aes(x=as.factor(Var2),y=value))+geom_boxplot()
+ggplot(melt(e$false_detection_prob),aes(x="",y=value))+geom_boxplot()
+ggplot(melt(e$knockout[,,1]),aes(x=as.factor(Var2),y=value))+geom_boxplot()
+ggplot(melt(e$llr_guide_present[,2,]),aes(x=as.factor(Var2),y=value))+geom_boxplot()
 
 library(loo)
 

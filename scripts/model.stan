@@ -20,8 +20,8 @@ real<lower=0> sd_sf;
 real<lower=0> beta_gene_variance;
 real<lower=0> sd_ln_mean_expression;
 real mean_ln_mean_expression;
-vector<lower=0,upper=1>[N_cells] remaining_time;
 vector<lower=0,upper=1>[N_gRNAs] detection_prob;
+vector<lower=0,upper=1>[N_gRNAs] knockout_rate;
 real<lower=0,upper=1> false_detection_prob;
 real<lower=0,upper=1> pos_selection_prob;
 real<lower=0,upper=1> neg_selection_prob;
@@ -58,13 +58,17 @@ target += normal_lpdf(ln_mean_expression | 0, sd_ln_mean_expression);
 target += normal_lpdf(mean_ln_mean_expression | 0, 10);
 
 
-target += normal_lpdf(mean_knockout | 0, 10);
+target += normal_lpdf(mean_knockout | 0, 2);
 target += inv_gamma_lpdf(sd_knockout | 5, 5);
 
 target += inv_gamma_lpdf(lambda_guide | 10, (10.0-1)/N_gRNAs);
-target += beta_lpdf(detection_prob | 6, 3);
+target += beta_lpdf(detection_prob | 7, 3);
+target += beta_lpdf(knockout_rate | 7, 3);
 
 target += beta_lpdf(false_detection_prob | 1, 100*N_gRNAs);
+target += beta_lpdf(neg_selection_prob | 1, 100);
+target += beta_lpdf(pos_selection_prob | 100, 10);
+target += normal_lpdf(to_vector(knockout_effect) | 0, 1);
 
 
 for (c in 1:N_cells) {
@@ -75,7 +79,7 @@ for (c in 1:N_cells) {
   for (r in 1:N_gRNAs) {
 
     lpdf_detected_present_true = bernoulli_lpmf(guide_detected[c,r] | detection_prob[r]) + log1m(exp(-lambda_guide[r]));
-    lpdf_ko_detected_present_true = normal_lpdf(knockout[r,c] | mean_knockout[r], sd_knockout[r]) + lpdf_detected_present_true;
+    lpdf_ko_detected_present_true = log_mix(knockout_rate[r], normal_lpdf(knockout[r,c] | mean_knockout[r], sd_knockout[r]),normal_lpdf(knockout[r,c] | 0, 0.001)) + lpdf_detected_present_true;
 
     lpdf_detected_present_false = bernoulli_lpmf(guide_detected[c,r]| false_detection_prob) -lambda_guide[r];
     lpdf_ko_detected_present_false = normal_lpdf(knockout[r,c] | 0, 0.001) + lpdf_detected_present_false;
@@ -103,3 +107,41 @@ target += poisson_lpmf(counts  | exp(
 ));
 }
 
+generated quantities{
+matrix[N_gRNAs, N_cells] llr_guide_present;
+{
+  real lpdf_detected_present_true;
+  real lpdf_ko_detected_present_true;
+  real lpdf_detected_present_false;
+  real lpdf_ko_detected_present_false;
+  real prod_term;
+  real prod_of_sums_term;
+  real prod_term_norm;
+  real prod_of_sums_term_norm;
+
+  for (c in 1:N_cells) {
+    prod_of_sums_term = log(pos_selection_prob);
+    prod_term = log(neg_selection_prob-pos_selection_prob);
+    prod_of_sums_term_norm = prod_of_sums_term;
+    prod_term_norm = prod_term;
+    for (r in 1:N_gRNAs) {
+
+      lpdf_detected_present_true = bernoulli_lpmf(guide_detected[c,r] | detection_prob[r]) + log1m(exp(-lambda_guide[r]));
+      lpdf_ko_detected_present_true = log_mix(knockout_rate[r], normal_lpdf(knockout[r,c] | mean_knockout[r], sd_knockout[r]),normal_lpdf(knockout[r,c] | 0, 0.001)) + lpdf_detected_present_true;
+
+
+      lpdf_detected_present_false = bernoulli_lpmf(guide_detected[c,r]| false_detection_prob) -lambda_guide[r];
+      lpdf_ko_detected_present_false = normal_lpdf(knockout[r,c] | 0, 0.01) + lpdf_detected_present_false;
+
+      prod_of_sums_term = prod_of_sums_term + log_sum_exp(lpdf_ko_detected_present_false, lpdf_ko_detected_present_true);
+      prod_term = prod_term + lpdf_ko_detected_present_false;
+
+      prod_of_sums_term_norm = prod_of_sums_term_norm + log_sum_exp(lpdf_detected_present_false, lpdf_detected_present_true);
+      prod_term_norm = prod_term_norm + lpdf_detected_present_false;
+
+      llr_guide_present[r,c] = lpdf_ko_detected_present_true + log(pos_selection_prob) -
+        (lpdf_ko_detected_present_false  +  log_mix(exp(-sum(lambda_guide)), neg_selection_prob, pos_selection_prob));
+    }
+  }
+}
+}
