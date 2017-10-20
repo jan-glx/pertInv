@@ -35,6 +35,19 @@ fit3 = update(fit2, family="nbinom2")
 fit3
 fit4 = update(fit3, dispformula = ~gene)
 fit4
+
+
+
+
+dt = data.table(melt(count_matrix[1:1000,1:40]))
+setnames(dt, c("cell","gene","counts"))
+start <-  Sys.time()
+fit1 <- glmmTMB(counts~1+(1|gene)+(1|cell), data=dt, family="nbinom2", dispformula = ~gene)
+Sys.time()-start
+
+
+
+
 sf_ <- exp(ranef(fit4)$cond$cell[[1]])
 
 library(glmnet)
