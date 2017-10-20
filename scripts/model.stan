@@ -78,20 +78,32 @@ for (c in 1:N_cells) {
   prod_term_norm = prod_term;
   for (r in 1:N_gRNAs) {
 
-    lpdf_detected_present_true = bernoulli_lpmf(guide_detected[c,r] | detection_prob[r]) + log1m(exp(-lambda_guide[r]));
-    lpdf_ko_detected_present_true = log_mix(knockout_rate[r], normal_lpdf(knockout[r,c] | mean_knockout[r], sd_knockout[r]),normal_lpdf(knockout[r,c] | 0, 0.001)) + lpdf_detected_present_true;
+    lpdf_detected_present_true = bernoulli_lpmf(guide_detected[c,r] | detection_prob[r]) +
+      log1m(exp(-lambda_guide[r]));
 
-    lpdf_detected_present_false = bernoulli_lpmf(guide_detected[c,r]| false_detection_prob) -lambda_guide[r];
-    lpdf_ko_detected_present_false = normal_lpdf(knockout[r,c] | 0, 0.001) + lpdf_detected_present_false;
+    lpdf_ko_detected_present_true =
+      log_mix(knockout_rate[r],
+              normal_lpdf(knockout[r,c] | mean_knockout[r], sd_knockout[r]),
+              normal_lpdf(knockout[r,c] | 0, 0.001)
+      ) + lpdf_detected_present_true;
 
-    prod_of_sums_term = prod_of_sums_term + log_sum_exp(lpdf_ko_detected_present_false, lpdf_ko_detected_present_true);
+    lpdf_detected_present_false =
+      bernoulli_lpmf(guide_detected[c,r]| false_detection_prob) - lambda_guide[r];
+    lpdf_ko_detected_present_false =
+      normal_lpdf(knockout[r,c] | 0, 0.001) + lpdf_detected_present_false;
+
+    prod_of_sums_term =
+      prod_of_sums_term + log_sum_exp(lpdf_ko_detected_present_false, lpdf_ko_detected_present_true);
     prod_term = prod_term + lpdf_ko_detected_present_false;
 
-    prod_of_sums_term_norm = prod_of_sums_term_norm + log_sum_exp(lpdf_detected_present_false, lpdf_detected_present_true);
+    prod_of_sums_term_norm =
+      prod_of_sums_term_norm + log_sum_exp(lpdf_detected_present_false, lpdf_detected_present_true);
     prod_term_norm = prod_term_norm + lpdf_detected_present_false;
 
     llr_guide_present[r,c] = lpdf_ko_detected_present_true + log(pos_selection_prob) -
-      (lpdf_ko_detected_present_false  +  log_mix(exp(-sum(lambda_guide)), neg_selection_prob, pos_selection_prob));
+      (lpdf_ko_detected_present_false  +
+       log_mix(exp(-(sum(lambda_guide)-lambda_guide[r])), neg_selection_prob, pos_selection_prob)
+      );
   }
   target += log_sum_exp(prod_of_sums_term, prod_of_sums_term);
   target += -log_sum_exp(prod_of_sums_term_norm, prod_term_norm);

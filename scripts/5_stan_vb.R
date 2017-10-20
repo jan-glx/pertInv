@@ -31,6 +31,17 @@ fit <- vb(m1, data = dat, sample_file = 'norm2.csv')#, iter=100000, adapt_engage
 
 fit <- sampling(m1, data = dat)
 #--------------------------------------
+# --------
+library(shinystan)
+thecounts <-as.vector(t(count_matrix))
+my_sso <- as.shinystan(fit, pars = c("mean_ln_mean_expression","ln_mean_expression[1]","ln_expression_noise[1]","sd_sf","ln_sf[1]","beta_gene_variance","gene_variance[1]",
+                                     "knockout[1,1]", "knockout_effect[1,1]", "lambda_guide[1]", "alpha_sf",  "sd_ln_mean_expression", "detection_prob[1]", "knockout_rate[1]",
+                                     "false_detection_prob", "pos_selection_prob", "neg_selection_prob", "mean_knockout[1]", "sd_knockout[1]"))
+my_sso <- as.shinystan(fit, pars = c("mean_ln_mean_expression","sd_sf","beta_gene_variance", "alpha_sf",
+                                     "sd_ln_mean_expression", "false_detection_prob", "pos_selection_prob", "neg_selection_prob"))
+launch_shinystan(my_sso)
+
+
 print(fit)
 stan_trace(fit, pars = c("mean_ln_mean_expression","ln_mean_expression[1]","ln_expression_noise[1]","sd_sf","ln_sf[1]","beta_gene_variance","gene_variance[1]"))
 
