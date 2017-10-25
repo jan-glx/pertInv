@@ -228,3 +228,23 @@ geom_jitter_normal <-function (mapping = NULL, data = NULL, stat = "identity", p
 sample.dt <- function(x, size, replace= FALSE, prob = NULL) {
   x[sample(nrow(x), size, replace, prob)]
 }
+
+
+#' @export
+index_first_dim <- function(x, i) {
+  sx <- quote(x[i])
+  for (j in seq_len(length(dim(x))-1)) {
+    sx[[j+3]] <- quote(x[,])[[3]] #add empty symbol
+  }
+  eval(sx)
+}
+
+#' @export
+index_sample <-  function(samples, i) {
+  lapply(samples, index_first_dim, i=i)
+}
+
+#' @export
+index_samples <-  function(samples, is) {
+  lapply(is, function(i) index_sample(samples, i))
+}
