@@ -97,6 +97,11 @@ rownames(guide_matrix)<- rownames(count_matrix)
 covariates.dt[is.na(guide),guide:="none"]
 
 fwrite(covariates.dt,"results/covariates.dt.csv")
+batch.dt <- covariates.dt[,.(cell=cell,batch=batch[1]),keyby=cell_id2][,.(cell,batch)]
+fwrite(batch.dt, file="results/batch.csv")
+feather::write_feather(batch.dt, "results/batch.feather")
+batch <- batch.dt[['batch']]
+save(batch, file="results/batch.RData")
 save(count_matrix,file="results/count_matrix.RData")
 save(guide_matrix,file="results/guide_matrix.RData")
 fwrite(as.data.table(count_matrix, keep.rownames = TRUE), file="results/count_matrix.csv")
