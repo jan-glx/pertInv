@@ -6,3 +6,4 @@ data_raw/*.bt2
 scripts/nndeconv_out/*
 */.ipynb_checkpoints/*
 scripts/_scratch.R
+stan_lib/*.rds
