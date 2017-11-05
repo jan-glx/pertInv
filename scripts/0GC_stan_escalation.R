@@ -46,8 +46,8 @@ e[[ii]] <- extract(fit_mc[[ii]])
 mean(e[[ii]]$ll_test)
 
 t.test(e[[1]]$ll_test, e[[2]]$ll_test)
-mean(e[[1]]$ll_test) #-3014.313
-mean(e[[2]]$ll_test) #-2987.932 # make per gene mean hirachical
+mean(e[[1]]$ll_test) #-3014.313 -2791.893
+mean(e[[2]]$ll_test) #-2987.932 # make per gene mean hirachical  -2810.301
 
 
 
@@ -55,13 +55,13 @@ ii <- 3
 mm[[ii]] <-  stan_model_builder("stan_lib/model_simplest_hirachical_A.stan")
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
 e[[ii]] <- extract(fit_mc[[ii]])
-mean(e[[ii]]$ll_test) # -2834.916 # making additionally per gene variance hirachical
+mean(e[[ii]]$ll_test) # -2834.916 # making additionally per gene variance hirachical -2682.266
 
 ii <- 4
 mm[[ii]] <-  stan_model_builder("stan_lib/model_simplest_hirachical_B.stan")
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
 e[[ii]] <- extract(fit_mc[[ii]])
-mean(e[[ii]]$ll_test) # -2827.271 # making additionally size factor hirachical
+mean(e[[ii]]$ll_test) # -2827.271 # making additionally size factor hirachical -2669.833
 t.test(e[[ii]]$ll_test,e[[ii-1]]$ll_test)
 
 
@@ -72,7 +72,7 @@ ii <- 5
 mm[[ii]] <-  stan_model_builder("stan_lib/model_with_guide_A.stan")
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
 e[[ii]] <- extract(fit_mc[[ii]])
-mean(e[[ii]]$ll_test) # -2827.579 # with guide info
+mean(e[[ii]]$ll_test) # -2827.579 # with guide info  -2662.936
 t.test(e[[ii]]$ll_test,e[[ii-1]]$ll_test) # not significant
 
 
@@ -86,7 +86,7 @@ ii <- 6
 mm[[ii]] <-  stan_model_builder("stan_lib/model_with_guide_B.stan")
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
 e[[ii]] <- extract(fit_mc[[ii]])
-mean(e[[ii]]$ll_test) # -2781.355 # with guide info
+mean(e[[ii]]$ll_test) # -2781.355 # with guide info  -2696.351
 t.test(e[[ii]]$ll_test,e[[ii-2]]$ll_test) # significant
 
 

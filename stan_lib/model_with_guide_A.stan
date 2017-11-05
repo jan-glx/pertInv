@@ -31,6 +31,7 @@ transformed parameters {
 }
 
 model {
+#include _hira_prior_params_dists_with_guide_A.stan
 #include _cont_hira_dists_with_guide_A.stan
 
 target += normal_lpdf(to_vector(X) | to_vector(rep_matrix(mu_X+mu_X_g, n_c) + gRNA_effects*D_m), to_vector(rep_matrix(sd_X_g, n_c)));

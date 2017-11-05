@@ -248,3 +248,9 @@ index_sample <-  function(samples, i) {
 index_samples <-  function(samples, is) {
   lapply(is, function(i) index_sample(samples, i))
 }
+
+#' @export
+log_sum_exp <- function(x) {
+  xm<- max(x)
+  log1p(sum(exp(x - xm))) + xm
+}
