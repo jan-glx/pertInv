@@ -25,10 +25,13 @@ parameters {
 
 transformed parameters {
   row_vector<lower=0,upper=1>[n_r] p_R_r; // gRNA_prior_probs
+  matrix[n_g,n_c] X; // log expression
 
   for (r in 1:n_r) {
     p_R_r[r] = 1-exp(-p_R_r_helper[r]); // distribution of abundance of gRNAs
   }
+
+  X = rep_matrix(mu_X+mu_X_g, n_c) + gRNA_effects*K + X_noise .* rep_matrix(sd_X_g, n_c);
 }
 
 model {
@@ -58,10 +61,10 @@ model {
 
   // further continous latent variables
   target += normal_lpdf(to_vector(K) | to_vector(to_array_1d(R)), 0.1);
-  target += normal_lpdf(to_vector(X) | to_vector(rep_matrix(mu_X+mu_X_g, n_c) + gRNA_effects*K), 1);
+  target += normal_lpdf(to_vector(X_noise) | 0, 1);
 
   // data
-  target += poisson_lpmf(to_array_1d(Y)  | to_vector(exp(X .* rep_matrix(sd_X_g, n_c) + rep_matrix(E_c, n_g))));
+  target += poisson_lpmf(to_array_1d(Y)  | to_vector(exp(X + rep_matrix(E_c, n_g))));
   target += bernoulli_lpmf(to_array_1d(D) | p_D_given_R[to_array_1d(R_2m)]);
 }
 

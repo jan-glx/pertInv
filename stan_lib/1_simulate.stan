@@ -24,6 +24,7 @@ generated quantities{
   #include 1_latent_disc.stan
   #include 1_observed.stan
   row_vector<lower=0,upper=1>[n_r] p_R_r; // gRNA_prior_probs
+  matrix[n_g,n_c] X;
 
 
   // hirachical prior parameters
@@ -82,7 +83,8 @@ generated quantities{
 
   for (c in 1:n_c) {
     for (g in 1:n_g) {
-      X[g,c] = normal_rng(mu_X + mu_X_g[g] + gRNA_effects[g]*col(K,c), sd_X_g[g]);
+      X_noise[g,c] = normal_rng(0, 1);
+      X[g,c] = mu_X + mu_X_g[g] + gRNA_effects[g] * col(K,c) + X_noise[g,c] * sd_X_g[g];
     }
   }
 

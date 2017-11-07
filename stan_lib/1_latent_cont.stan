@@ -20,5 +20,5 @@ row_vector[n_c] E_c; // log exposure 'size factor' or 'library size'
 vector[n_g] mu_X_g; // means of genes' expression
 
 // further continous latent variables
-matrix[n_g,n_c] X; // log expression
+matrix[n_g,n_c] X_noise; // log expression noise
 matrix[n_r,n_c] K; // knockout strengths of sgRNAs and cells
