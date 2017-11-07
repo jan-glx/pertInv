@@ -39,13 +39,28 @@ for (i in names(ee[[ii]])) {
   abline(v=dat[[i]][1],col="red")
 }
 
+
 ii <- 3
 mm[[ii]] <-  stan_model_builder("stan_lib/1_fit_vec.stan")
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
-cat(fit_mc[[ii]]@stanmodel@model_code, file="stan_lib/to_read.stan")
 ee[[ii]] <- extract(fit_mc[[ii]])
-list2env(dat,globalenv())
 
+
+
+ii <- 4
+mm[[ii]] <-  mm[[ii-1]]
+inits = index_samples(ee[[1]], is=2:5)
+fit_mc[[ii]] <- sampling(mm[[ii]], data = dat, init = inits)
+ee[[ii]] <- extract(fit_mc[[ii]])
+
+dt <- rbindlist(lapply(fit_mc[[ii]]@sim$samples,function(x) as.data.table(c(x,attr(x, "sampler_params")))[,chain__:=stringi::stri_rand_strings(1, 3)]))
+dt[,i__:=seq_len(.N),by=chain__]
+
+scalar_pars <- stringr::str_subset(colnames(dt), "(?:[^\\]]|(?:\\[1\\])|(?:\\[1,1\\]))$")
+dt <- dt[,scalar_pars, with=FALSE]
+ggplot(dt[i__>1000],aes(y=energy__,x=mu_log_p_R_r))+geom_point()
+ggplot(melt(dt[i__>1000],id.vars=c("energy__","chain__","i__")),aes(y=energy__,x=value))+geom_point()+facet_wrap("variable", scales="free_x")+
+ geom_smooth(method="lm")
 
 scalar_pars <- stringr::str_subset(names(fit_mc[[ii]]@sim$samples[[1]]), "(?:[^\\]]|(?:\\[1\\])|(?:\\[1,1\\]))$")
 pairs(fit_mc[[ii]],pars=scalar_pars[1:ceiling(length(scalar_pars)/2)])

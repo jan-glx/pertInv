@@ -37,8 +37,8 @@ model {
   sd_log_p_R_r ~ lognormal(-1, 0.1); // prior of sd of log abundance of sgRNAs
   sd_mu_X ~ lognormal(-1, 0.1);  // prior of sd of mean log expression of genes
   sd_E ~ lognormal(-1, 0.1); // prior of sd of log size factors
-  mu_log_var_X_g ~ normal(-1, 0.1); // prior of mean log variance of log expression of genes
-  sd_log_var_X_g ~ lognormal(-1, 0.1);  // prior of sd of log variance of log expression of genes
+  mu_log_sd_X_g ~ normal(-1, 0.1); // prior of mean log variance of log expression of genes
+  sd_log_sd_X_g ~ lognormal(-1, 0.1);  // prior of sd of log variance of log expression of genes
   sd_gRNA_effects ~ lognormal(-3, 0.1); // prior of sd of sgRNA effects
 
   // non-hirachical prior parameters
@@ -50,7 +50,7 @@ model {
 
   target += normal_lpdf(to_vector(gRNA_effects) | 0, sd_gRNA_effects); // distribution of effects of gRNAs on genes
 
-  target += lognormal_lpdf(sd_X_g | mu_log_var_X_g, sd_log_var_X_g); // distribution of expression variance of genes
+  target += lognormal_lpdf(sd_X_g | mu_log_sd_X_g, sd_log_sd_X_g); // distribution of expression variance of genes
 
   target += lognormal_lpdf(p_R_r_helper | mu_log_p_R_r, sd_log_p_R_r); // distribution of abundance of gRNAs
 
@@ -65,10 +65,10 @@ model {
   // further continous latent variables
   target += normal_lpdf(to_vector(K) | to_vector(to_array_1d(R)), 0.1);
 
-  target += normal_lpdf(to_vector(X) | to_vector(rep_matrix(mu_X+mu_X_g, n_c) + gRNA_effects*K), to_vector(rep_matrix(sd_X_g, n_c)));
+  target += normal_lpdf(to_vector(X) | to_vector(rep_matrix(mu_X+mu_X_g, n_c) + gRNA_effects*K), 1);
 
   // data
-  target += poisson_lpmf(to_array_1d(Y)  | to_vector(exp(X+rep_matrix(E_c, n_g))));
+  target += poisson_lpmf(to_array_1d(Y)  | to_vector(exp(X .* rep_matrix(sd_X_g, n_c) + rep_matrix(E_c, n_g))));
 
   target += bernoulli_lpmf(to_array_1d(D) | p_D_given_R[to_array_1d(R_2m)]);
 

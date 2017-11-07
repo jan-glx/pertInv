@@ -31,8 +31,8 @@ generated quantities{
   sd_log_p_R_r = lognormal_rng(-1, 0.1); // prior of sd of log abundance of sgRNAs
   sd_mu_X = lognormal_rng(-1, 0.1);  // prior of sd of mean log expression of genes
   sd_E = lognormal_rng(-1, 0.1); // prior of sd of log size factors
-  mu_log_var_X_g = normal_rng(-1, 0.1); // prior of mean log variance of log expression of genes
-  sd_log_var_X_g = lognormal_rng(-1, 0.1);  // prior of sd of log variance of log expression of genes
+  mu_log_sd_X_g = normal_rng(-1, 0.1); // prior of mean log variance of log expression of genes
+  sd_log_sd_X_g = lognormal_rng(-1, 0.1);  // prior of sd of log variance of log expression of genes
   sd_gRNA_effects = lognormal_rng(-3, 0.1); // prior of sd of sgRNA effects
 
   // non-hirachical prior parameters
@@ -47,7 +47,7 @@ generated quantities{
     }
   }
   for (g in 1:n_g) {
-    sd_X_g[g] = lognormal_rng(mu_log_var_X_g, sd_log_var_X_g); // distribution of expression variance of genes
+    sd_X_g[g] = lognormal_rng(mu_log_sd_X_g, sd_log_sd_X_g); // distribution of expression variance of genes
   }
   for (r in 1:n_r) {
     p_R_r_helper[r] = lognormal_rng(mu_log_p_R_r, sd_log_p_R_r); // distribution of abundance of gRNAs
