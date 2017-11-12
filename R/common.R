@@ -7,11 +7,12 @@
 NULL
 
 #' @export
-figure <- function(title, p, sub_title = NULL, ...){
+figure <- function(title, p, sub_title = if(exists("data_set")) data_set else character(0), ...){
   RESULT_FOLDER <- "results"
-  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".pdf")), ...)
+  file_name <- paste0(make.names(title), "-", make.names(sub_title))
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".pdf")), p, ...)
   p <- p + ggplot2::ggtitle(title, sub_title)
-  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(make.names(title),".png")),  ...)
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".png")), p, ...)
   p
 }
 
@@ -253,4 +254,20 @@ index_samples <-  function(samples, is) {
 log_sum_exp <- function(x) {
   xm<- max(x)
   log1p(sum(exp(x - xm))) + xm
+}
+
+#' @export
+#' @author gvrocha
+#' @source https://stackoverflow.com/a/33179099/1870254
+log10_minor_break = function (...){
+  function(x) {
+    minx         = floor(min(log10(x), na.rm=T))-1;
+    maxx         = ceiling(max(log10(x), na.rm=T))+1;
+    n_major      = maxx-minx+1;
+    major_breaks = seq(minx, maxx, by=1)
+    minor_breaks =
+      rep(log10(seq(1, 9, by=1)), times = n_major)+
+      rep(major_breaks, each = 9)
+    return(10^(minor_breaks))
+  }
 }
