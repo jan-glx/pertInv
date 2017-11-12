@@ -1,22 +1,32 @@
-library("InvariantCausalPrediction")
+library(pertInv)
+data_set = "GSM2396858_k562_tfs_7"
+# "GSM2396861_k562_ccycle"
+# "GSM2396858_k562_tfs_7"
+# "GSM2396859_k562_tfs_13"
+# "GSM2396860_k562_tfs_highmoi"
+# "GSM2396856_dc_3hr"
+# "GSM2396857_dc_0hr"
+data_folder <- paste0('data_processed/', data_set)
 
+load(file = file.path(data_folder, "batch_matrix.RData"))
+load(file = file.path(data_folder, "count_matrix.RData"))
+n_genes <- nrow(count_matrix)
+n_cells <- ncol(count_matrix)
+load(file = file.path(data_folder, "guide_matrix.RData"))
+covariates.dt <- fread(file.path(data_folder, "covariates.dt.csv"))
 
-Y <- stabilize_Anscombes(count_matrix) #count_matrix
-X <- model.matrix(~I(CDR^2)+I(CDR^3)+CDR+total_counts_scaled+batch,data=covariates.dt) #+guide
+Y <- sweep(count_matrix, 2, colMeans(count_matrix), "/") # stabilize_Anscombes(count_matrix) #count_matrix
+X <- model.matrix(~0+I(CDR^2)+I(CDR^3)+CDR+total_counts_scaled+batch, data=covariates.dt) #+guide
 
 fit <- lm(Y ~ .,as.data.table(X))
 Y_adj <- residuals(fit)
 
-ExpInd <- covariates.dt[, guide] #interaction(batch, guide)]#target_gene]#
-ExpInd[is.na(ExpInd)] <- "none"
-
-
-lmfit <- lm.fit(x=model.matrix(~.,data.table(guide=as.factor(ExpInd))), y=Y_adj)
+lmfit <- lm.fit(x=guide_matrix, y=Y_adj)
 
 dt <- melt(data.table(Y_adj, keep.rownames = TRUE), id.vars="rn")
 
 
-dt <- cbc_gbc_dict.dt[dt,on=c("cell"="rn")]
+dt <- covariates.dt[dt,on=c("cell"="rn")]
 
 dt_means <- dt[,.(mean=mean(value)),by=.(variable,target_gene,guide)]
 t_tests <- dt_means[!is.na(target_gene),{null<-mean[target_gene=="INTERGENIC"];.SD[target_gene!="INTERGENIC",t.test(mean,null)$p.value,by=target_gene]},by=variable]

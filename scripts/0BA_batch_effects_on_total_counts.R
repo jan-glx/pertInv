@@ -1,7 +1,7 @@
 
 
 data_folder <- 'data_raw/'
-data_set = "GSM2396857_dc_0hr"
+data_set = "GSM2396858_k562_tfs_7"
 
 counts.dt <- fread(paste0('gzip -dc ', data_folder, data_set,'.mtx.txt.gz'))
 setnames(counts.dt,c("gene_id","cell_id","count"))
@@ -26,10 +26,19 @@ ddt
 
 figure("batch effect on total_counts",
 ggplot(ddt, aes(x=total_counts,color=batch))+geom_density()+scale_x_log10()+
-  geom_jitter_normal(aes(y=-as.integer(as.factor(batch))/20.0),height=0.01,width=0,size=1)
+  geom_jitter_normal(aes(y=-as.integer(as.factor(batch))/20.0),height=0.01,width=0,size=1)+
+  theme(legend.justification = c(1, 1), legend.position = c(1, 1)),
+width=8,height=5
 )
 
 
 dt = counts.dt[, .(mean_counts = mean(count)), by=.(gene_id, batch)]
 dt = dcast(dt, gene_id~batch, value.var="mean_counts",fill=0)
-ggplot(dt, aes(y=dc0h_G9, x=dc0h_E8))+geom_point()+scale_x_log10()+scale_y_log10()+geom_abline(slope=dt[,sum(dc0h_G9)/sum(dc0h_E8)])+geom_smooth()
+figure("non linear sequencing batch effects",
+       ggplot(dt, aes(y=p7d_C2, x=p7d_B2))+
+         geom_point()+
+         scale_x_log10()+scale_y_log10()+
+         geom_abline(slope=dt[,sum(p7d_C2)/sum(p7d_B2)])+
+         geom_smooth(),
+  width=5,height=5
+)

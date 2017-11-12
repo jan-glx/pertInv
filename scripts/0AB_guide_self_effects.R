@@ -47,8 +47,8 @@ cbc_gbc_dict.dt[,guide_id := as.integer(factor(guide))]
 guide_matrix <- cbc_gbc_dict.dt[cells_summary.dt[cellnames.dt, on="cell_id"], on="cell"][!is.na(guide_id), as.matrix(Matrix::sparseMatrix(cell_id2, guide_id, x=TRUE))]
 
 covariates.dt <- cells_summary.dt[cellnames.dt, on="cell_id"]
-Y <- stabilize_Anscombes(count_matrix) #count_matrix
-X <- model.matrix(~I(CDR^2)+I(CDR^3)+CDR+total_counts_scaled+batch,data=covariates.dt) #+guide
+Y <-  sweep(count_matrix, 2, colMeans(count_matrix), "/") #stabilize_Anscombes(count_matrix) #count_matrix
+X <- model.matrix(~0+I(CDR^2)+I(CDR^3)+CDR+total_counts_scaled+batch,data=covariates.dt) #+guide
 
 fit <- lm(Y ~ .,as.data.table(X))
 Y_adj <- residuals(fit)
