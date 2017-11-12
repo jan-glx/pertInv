@@ -34,7 +34,7 @@ generated quantities{
   sd_E = lognormal_rng(-1, 0.1); // prior of sd of log size factors
   mu_log_sd_X_g = normal_rng(-1, 0.1); // prior of mean log variance of log expression of genes
   sd_log_sd_X_g = lognormal_rng(-1, 0.1);  // prior of sd of log variance of log expression of genes
-  sd_gRNA_effects = lognormal_rng(-3, 0.1); // prior of sd of sgRNA effects
+  sd_gRNA_effects = lognormal_rng(-2, 0.1); // prior of sd of sgRNA effects
 
   // non-hirachical prior parameters
   mu_X = normal_rng(0, 1);

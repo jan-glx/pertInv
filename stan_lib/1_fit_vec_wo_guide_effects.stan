@@ -57,12 +57,11 @@ model {
   target += normal_lpdf(mu_X_g | 0, sd_mu_X); // distribution of mean expression of genes
 
   // discrete latent variables
-  target += bernoulli_lpmf(to_array_1d(R) | to_vector(rep_matrix(p_R_r, n_c))); // distribution of guide presence
-  // TODO: selection bias against Sum(R)==0 cells
+  target += bernoulli_lpmf(to_array_1d(R) | to_vector(rep_matrix(p_R_r, n_c)));
 
   // further continous latent variables
-  target += normal_lpdf(to_vector(K) | to_vector(to_array_1d(R)), 0.1); // Knockout strength
-  target += normal_lpdf(to_vector(X_noise) | 0, 1); // biological expression noise (should actually be multivariate)
+  target += normal_lpdf(to_vector(K) | to_vector(to_array_1d(R)), 0.1);
+  target += normal_lpdf(to_vector(X_noise) | 0, 1);
 
   // data
   target += poisson_lpmf(to_array_1d(Y)  | to_vector(exp(X + rep_matrix(E_c, n_g))));

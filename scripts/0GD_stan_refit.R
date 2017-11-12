@@ -76,17 +76,21 @@ dat$n_test <- length(dat$ii_test)
 
 ii <- 4
 mm[[ii]] <-  stan_model_builder("stan_lib/model_with_guide_A.stan")
-fit_mc[[ii]] <- sampling(mm[[ii]], data = dat, control = list(adapt_delta = 0.999)) # does not fit correctly
+fit_mc[[ii]] <- sampling(mm[[ii]], data = dat, iter = 4000, control = list(adapt_delta = 0.999, stepsize=0.01)) # does not fit correctly
 e[[ii]] <- extract(fit_mc[[ii]])
 
 scalar_pars <- stringr::str_subset(names(fit_mc[[ii]]@sim$samples[[1]]), "(?:[^\\]]|(?:\\[1\\])|(?:\\[1,1\\]))$")
 pairs(fit_mc[[ii]],pars=scalar_pars[1:ceiling(length(scalar_pars)/2)])
 pairs(fit_mc[[ii]],pars=scalar_pars[-(1:ceiling(length(scalar_pars)/2))])
 pairs(fit_mc[[ii]],pars=c("E_c[1]","sd_E","lp__"))
+pairs(fit_mc[[ii]],pars=c("sd_mu_X","mu_X_g[1]","mu_X_g[2]","mu_X","lp__"))
 
 sstan = as.shinystan(fit_mc[[ii]], pars=fit_mc[[ii]]@sim$pars_oi[!(fit_mc[[ii]]@sim$pars_oi %in% c("X", "X_train", "X_test"))])
 
 shinystan::launch_shinystan(sstan)
+
+
+plot(get_sampler_params(fit_mc[[ii]], inc_warmup = FALSE)[[4]][,"energy__"])
 
 
 
