@@ -104,6 +104,13 @@ plot_matrix <- function(X){
                      at=seq(0,1,0.01))
 }
 
+#  http://jfly.iam.u-tokyo.ac.jp/color/:
+#' @export
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+# The palette with black:
+#' @export
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
 #' @export
 cool_warm <- function(n) {
   colormap <- Rgnuplot:::GpdivergingColormap(seq(0,1,length.out=n),
