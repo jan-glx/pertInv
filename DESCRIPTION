@@ -6,7 +6,7 @@ Date: 2017-06-08
 Author: Jan Gleixner
 Maintainer: Jan Gleixner <jan.gleixner@gmail.com>
 Description: More about what it does (maybe more than one line)
-Imports: data.table,scran,Matrix,stringr,cowplot,feather,rstan
+Imports: data.table,scran,Matrix,stringr,cowplot,feather,rstan,latex2exp
 Depends: data.table,cowplot,methods
 License: MIT
 RoxygenNote: 6.0.1
