@@ -1,4 +1,20 @@
+# load data -------------
+library(pertInv)
+data_set = "GSM2396858_k562_tfs_7"
+# "GSM2396861_k562_ccycle"
+# "GSM2396858_k562_tfs_7"
+# "GSM2396859_k562_tfs_13"
+# "GSM2396860_k562_tfs_highmoi"
+# "GSM2396856_dc_3hr"
+# "GSM2396857_dc_0hr"
+data_folder <- paste0('data_processed/', data_set)
 
+load(file = file.path(data_folder, "batch_matrix.RData"))
+load(file = file.path(data_folder, "count_matrix.RData"))
+n_genes <- ncol(count_matrix)
+n_cells <- nrow(count_matrix)
+load(file = file.path(data_folder, "guide_matrix.RData"))
+covariates.dt <- fread(file.path(data_folder, "covariates.dt.csv"))
 
 # ---------------------
 mmv <- copy(log(1+count_matrix))
@@ -89,16 +105,16 @@ figure1(paste(transformation_method,"adjusted"),
         plot_corr_matrix(gene_gene_adj,new_order), title=FALSE)
 
 figure1(paste(transformation_method, " adjusted p-val distribution"),
-        hist(rcorr(Y_adj, type="pearson")$P), TRUE)
+        hist(Hmisc::rcorr(Y_adj, type="pearson")$P), TRUE)
 
 figure1(paste(transformation_method, " adjusted null p-val distribution"),
-        hist(rcorr(apply(Y_adj, 2, sample) , type="pearson")$P), TRUE)
+        hist(Hmisc::rcorr(apply(Y_adj, 2, sample) , type="pearson")$P), TRUE)
 
 figure1(paste(transformation_method, " raw p-val distribution"),
-        hist(rcorr(Y, type="pearson")$P), TRUE)
+        hist(Hmisc::rcorr(Y, type="pearson")$P), TRUE)
 
 figure1(paste(transformation_method, " raw null p-val distribution"),
-        hist(rcorr(apply(Y, 2, sample) , type="pearson")$P), TRUE)
+        hist(Hmisc::rcorr(apply(Y, 2, sample) , type="pearson")$P), TRUE)
 
 figure1(paste(transformation_method, "QQ plot"),
         qqplot(-log_rcorr(Y_adj, type="pearson")$log_P, -log_rcorr(Y, type="pearson")$log_P))
@@ -167,8 +183,14 @@ figure1(paste(transformation_method, "QQ plot: effect significance - adj. batch/
 
 #-------------------------------
 library(Rtsne)
+transformation_method = "Ancombes" #"Log(1+counts)" # "Log(1+counts)" #"Ancombes" #"Log(1+counts)"
 
-subset_ <- sample(nrow(Y), 10000)
+Y <- switch(transformation_method,
+            Ancombes=stabilize_Anscombes(count_matrix),
+            `Log(1+counts)`=log2(1+count_matrix)
+)
+Y[1:3,1:4]
+subset_ <- sample(nrow(Y), 1000)
 
 res<- Rtsne(Y[subset_,])
 res <- data.table(res$Y)
@@ -176,6 +198,9 @@ setnames(res,c("t-SNE1","t-SNE2"))
 res <- cbind(res,covariates.dt[subset_])
 figure("tSNE-unadjusted",
        ggplot(res, aes(x=`t-SNE1`,y=`t-SNE2`,color=batch))+geom_point())
+figure("tSNE-unadjusted by CDR",
+       ggplot(res, aes(x=`t-SNE1`,y=`t-SNE2`,color=CDR))+geom_point()+
+         viridis::scale_color_viridis())
 
 
 X <- model.matrix(~I(CDR^2)+I(CDR^3)+CDR+total_counts_scaled,data=covariates.dt) #+guide
@@ -210,5 +235,5 @@ figure("tSNE-adjusted by is targeted",
        ggplot(res, aes(x=`t-SNE1`,y=`t-SNE2`,color=is.na(target_gene)))+geom_point())
 figure("tSNE-adjusted by CDR",
        ggplot(res, aes(x=`t-SNE1`,y=`t-SNE2`,color=CDR))+geom_point()+
-         scale_color_viridis())
+         viridis::scale_color_viridis())
 
