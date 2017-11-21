@@ -65,7 +65,7 @@ model {
   target += normal_lpdf(to_vector(X_noise) | 0, 1); // biological expression noise (should actually be multivariate)
 
   // data
-  target += poisson_lpmf(to_array_1d(Y)  | to_vector(exp(X + rep_matrix(E_c, n_g))));
+  target += poisson_log_lpmf(to_array_1d(Y)  | to_vector(X + rep_matrix(E_c, n_g)));
   target += bernoulli_lpmf(to_array_1d(D) | p_D_given_R[to_array_1d(R_2m)]);
 }
 

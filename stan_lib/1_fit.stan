@@ -82,7 +82,7 @@ model {
   // data
   for (c in 1:n_c) {
     for (g in 1:n_g) {
-      Y[c,g] ~ poisson(exp(X[g,c]+E_c[c]));
+      Y[c,g] ~ poisson_log(X[g,c]+E_c[c]);
     }
   }
   for (c in 1:n_c) {

@@ -94,7 +94,7 @@ generated quantities{
       if (X[g,c]+E_c[c] > 9){
         print(mu_X,", ",mu_X_g[g],", ",gRNA_effects[g]*col(K,c),", ",sd_X_g[g])
       }
-      Y[c,g] = poisson_rng(exp(X[g,c]+E_c[c]));
+      Y[c,g] = poisson_log_rng(X[g,c]+E_c[c]);
     }
   }
   for (c in 1:n_c) {
