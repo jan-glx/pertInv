@@ -61,7 +61,7 @@ NUM_GENES_TO_KEEP = 2000
 n_cells <- length(unique(counts.dt[,cell_id]))
 genes_summary.dt <-
   counts.dt[, .(total_counts=sum(count), cells_with_counts=.N),by=.(gene_id)
-            ][, `:=`(keep = rank(-total_counts)<=NUM_GENES_TO_KEEP,
+            ][, `:=`(keep = rank(-total_counts,ties.method="first")<=NUM_GENES_TO_KEEP,
                      frac_cells_with_counts=cells_with_counts/n_cells,
                      mean_counts_per_cell_with_counts=total_counts/cells_with_counts,
                      mean_count=total_counts/n_cells)]
@@ -80,6 +80,7 @@ figure(paste0("Distribution fraction of cells with counts over genes – ", data
        height=3, width=8
 )
 logprint(median(genes_summary.dt[,frac_cells_with_counts]))
+logprint(mean(genes_summary.dt[,frac_cells_with_counts]))
 
 figure(paste0("Distribution fraction of cells with counts over kept genes – ", data_set),
        ggplot(genes_summary.dt[keep==TRUE], aes(x=frac_cells_with_counts))+
@@ -93,6 +94,7 @@ figure(paste0("Distribution fraction of cells with counts over kept genes – ",
        height=3, width=8
 )
 logprint(median(genes_summary.dt[keep==TRUE,frac_cells_with_counts]))
+logprint(mean(genes_summary.dt[keep==TRUE,frac_cells_with_counts]))
 
 figure(paste0("Distribution fraction of cells with counts over genes (zoomed) – ", data_set),
        ggplot(genes_summary.dt, aes(x=frac_cells_with_counts))+
