@@ -10,8 +10,8 @@ data_folder <- paste0('data_processed/', data_set)
 
 load(file = file.path(data_folder, "batch_matrix.RData"))
 load(file = file.path(data_folder, "count_matrix.RData"))
-n_genes <- nrow(count_matrix)
-n_cells <- ncol(count_matrix)
+n_genes <- ncol(count_matrix)
+n_cells <- nrow(count_matrix)
 load(file = file.path(data_folder, "guide_matrix.RData"))
 covariates.dt <- fread(file.path(data_folder, "covariates.dt.csv"))
 
