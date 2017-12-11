@@ -10,9 +10,10 @@ NULL
 figure <- function(title, p, sub_title = if(exists("data_set")) data_set else character(0), ...){
   RESULT_FOLDER <- "results"
   file_name <- paste0(make.names(title), "-", make.names(sub_title))
-  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".pdf")), p, ...)
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".pdf")), p, ..., device=cairo_pdf)
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".png")), p, ..., type = "cairo")
   p <- p + ggplot2::ggtitle(title, sub_title)
-  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".png")), p, ...)
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,"_titled.png")), p, ..., type = "cairo")
   p
 }
 
@@ -59,8 +60,8 @@ stabilize_Anscombes <- function(count_matrix){
   # See https://f1000research.com/posters/4-1041 for motivation.
   # Assumes columns are samples, and rows are genes
   mu <- colMeans(count_matrix)
-  vars <- matrixStats:::colVars(count_matrix)
-  phi_hat <- stats::optimize( function (phi) sum((mu + phi * mu^2-vars)^2), interval=c(1E-9,1E9))$minimum
+  sigma_sq <- matrixStats:::colVars(count_matrix)
+  phi_hat <- phi_hat(mu, sigma_sq)
   log2(count_matrix + 1. / (2 * phi_hat))
 }
 
@@ -260,7 +261,12 @@ index_samples <-  function(samples, is) {
 #' @export
 log_sum_exp <- function(x) {
   xm<- max(x)
-  log1p(sum(exp(x - xm))) + xm
+  log(sum(exp(x - xm))) + xm
+}
+
+#' @export
+log_mean_exp <- function(x) {
+  log_sum_exp(x)-log(length(x))
 }
 
 #' @export
@@ -272,9 +278,13 @@ log10_minor_break = function (...){
     maxx         = ceiling(max(log10(x), na.rm=T))+1;
     n_major      = maxx-minx+1;
     major_breaks = seq(minx, maxx, by=1)
-    minor_breaks =
-      rep(log10(seq(1, 9, by=1)), times = n_major)+
-      rep(major_breaks, each = 9)
-    return(10^(minor_breaks))
+
+    minor_breaks =log10(seq(1, 9, by=1))
+    breaks = rep(major_breaks, each=length(minor_breaks)) +
+             rep(minor_breaks, times = n_major)
+    if(sum( (breaks < max(log10(x))) & (breaks > min(log10(x)))) >5 ){
+      breaks <-  breaks[rep(c(T,T,T,F,T,F,T,F,F),n_major)]
+    }
+    return(10^(breaks))
   }
 }
