@@ -9,19 +9,19 @@ logprint <-  function(x) {
 }
 
 
-true_false_scale  <- {
+true_false_scale  <- function(name="cell"){
   dd <- c(TRUE, FALSE)
   dd.col <- cool_warm(2)
   names(dd.col)  <- dd
-  dd.lab <- c("yes","no")
+  dd.lab <- c("selected","other")
   names(dd.lab)  <- dd
-  scale_color_manual(name="kept",values = dd.col, labels=dd.lab)
+  scale_color_manual(name=name,values = dd.col, breaks=dd,labels=dd.lab)
 }
 
 
 guides_per_cell_dt <- unique(cbc_gbc_dict.dt,by=c("cell","guide"))[,.(unique_guides_per_cell=sum(!is.na(guide))),by=cell]
 
-figure(paste0("guides per cell – ", data_set),
+figure("guides per cell",
        ggplot(guides_per_cell_dt,aes(x=as.factor(unique_guides_per_cell)))+geom_bar(aes(y=..count../sum(..count..)))+
          xlab("# unique guides per cell (detected)")+ylab("relative frequency"), height=3,width=5
 )
@@ -43,15 +43,15 @@ sscale_log10 <- function(x) {
   }
 }
 #
-figure(paste0("distribution of number of cells with guide – ", data_set),
+figure("distribution of number of cells with guide",
        ggplot(guides_summary, aes(x=N))+
          geom_density(color=NA, fill="gray", aes(y=..scaled..)) +
          ylab("scaled density estimate") +
-         geom_segment(aes(x=N,xend=N,y=0,yend=0.1,color=keep))+
+         geom_segment(aes(x=N,xend=N,y=0,yend=0.1))+
+         stat_density(geom="line",color="gray", aes(y=..scaled..)) +
          xlab('# cells with respective guide')+ expand_limits(x=0) +
          scale_x_log10(breaks = sscale_log10(guides_summary$N)) +
          annotation_logticks(sides="b") +
-         true_false_scale +
          theme(legend.justification = c(1, 1), legend.position = c(1, 1)),
        height=3,width=8
 )
@@ -66,50 +66,53 @@ genes_summary.dt <-
                      mean_counts_per_cell_with_counts=total_counts/cells_with_counts,
                      mean_count=total_counts/n_cells)]
 
-figure(paste0("Distribution fraction of cells with counts over genes – ", data_set),
+figure("Distribution fraction of cells with counts over genes",
        ggplot(genes_summary.dt, aes(x=frac_cells_with_counts)) +
          geom_density(color=NA, fill="gray", aes(y=..scaled..)) +
          ylab("scaled density estimate") +
          geom_segment(aes(x=frac_cells_with_counts,xend=frac_cells_with_counts,y=0,yend=0.1,color=keep))+
+         stat_density(geom="line",color="gray", aes(y=..scaled..)) +
          scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
                        limits=c(genes_summary.dt[,min(frac_cells_with_counts)],1))  +
          annotation_logticks(sides="b") +
-         xlab("fraction of cells with at least one count for the gene") +
-         true_false_scale +
+         xlab("fraction of cells in which gene was detected") +
+         true_false_scale("gene") +
          theme(legend.justification = c(0, 1), legend.position = c(0.01, 1)),
        height=3, width=8
 )
 logprint(median(genes_summary.dt[,frac_cells_with_counts]))
 logprint(mean(genes_summary.dt[,frac_cells_with_counts]))
 
-figure(paste0("Distribution fraction of cells with counts over kept genes – ", data_set),
+figure("Distribution fraction of cells with counts over kept genes",
        ggplot(genes_summary.dt[keep==TRUE], aes(x=frac_cells_with_counts))+
          geom_density(color=NA, fill="gray", aes(y=..scaled..)) +
          ylab("scaled density estimate") +
          geom_segment(aes(x=frac_cells_with_counts,xend=frac_cells_with_counts,y=0,yend=0.1,color=keep))+
          expand_limits(y=1) +
-         xlab("fraction of cells with at least one count for the gene") +
-         true_false_scale +
+         stat_density(geom="line",color="gray", aes(y=..scaled..)) +
+         xlab("fraction of cells in which gene was detected") +
+         true_false_scale("gene") +
          theme(legend.justification = c(0, 1), legend.position = c(0.01, 1)),
        height=3, width=8
 )
 logprint(median(genes_summary.dt[keep==TRUE,frac_cells_with_counts]))
 logprint(mean(genes_summary.dt[keep==TRUE,frac_cells_with_counts]))
 
-figure(paste0("Distribution fraction of cells with counts over genes (zoomed) – ", data_set),
+figure("Distribution fraction of cells with counts over genes (zoomed)",
        ggplot(genes_summary.dt, aes(x=frac_cells_with_counts))+
-         geom_density(color=NA, fill="gray", aes(y=..scaled..*35)) +
+         geom_density(color=NA, fill="gray", aes(y=..scaled../max(..scaled..[x>0.4968043]))) +
          ylab("scaled density estimate") +
          geom_segment(aes(x=frac_cells_with_counts,xend=frac_cells_with_counts,y=0,yend=0.1,color=keep))+
+         stat_density(geom="line",color="gray", aes(y=..scaled../max(..scaled..[x>0.4968043]))) +
          expand_limits(y=1) +
-         xlab("fraction of cells with at least one count for the gene") +
-         true_false_scale +
+         xlab("fraction of cells in which gene was detected") +
+         true_false_scale("gene") +
          coord_cartesian(xlim=genes_summary.dt[keep==TRUE,range(frac_cells_with_counts)],ylim=c(0,1)) +
          theme(legend.justification = c(0.5, 1), legend.position = c(0.5, 1)),
        height=3, width=8
 )
 
-figure(paste0("Distribution mean counts per cells with counts over genes – ", data_set),
+figure("Distribution mean counts per cells with counts over genes",
        ggplot(genes_summary.dt, aes(x=mean_counts_per_cell_with_counts-1))+
          geom_density()+
          scale_x_log10()
@@ -117,30 +120,32 @@ figure(paste0("Distribution mean counts per cells with counts over genes – ", 
 median(genes_summary.dt[,mean_counts_per_cell_with_counts])
 
 
-figure(paste0("Distribution mean counts over genes – ", data_set),
+figure("Distribution mean counts over genes",
        ggplot(genes_summary.dt, aes(x=mean_count))+
          geom_density(color=NA, fill="gray", aes(y=..scaled..)) +
          ylab("scaled density estimate") +
          geom_segment(aes(x=mean_count,xend=mean_count,y=0,yend=0.1,color=keep))+
+         stat_density(geom="line",color="gray", aes(y=..scaled..)) +
          scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x)) +
          annotation_logticks(sides="b") +
-         xlab("mean count per cell of gene") +
-         true_false_scale +
+         xlab("UMIs per cell") +
+         true_false_scale("gene") +
          theme(legend.justification = c(1, 1), legend.position = c(1, 1)),
        height=3, width=8
 )
 logprint(median(genes_summary.dt[,mean_count]))
 
-figure(paste0("Distribution counts over kept genes – ", data_set),
+figure("Distribution counts over kept genes",
        ggplot(genes_summary.dt[keep==TRUE], aes(x=mean_count))+
          geom_density(color=NA, fill="gray", aes(y=..scaled..)) +
          ylab("scaled density estimate") +
          geom_segment(aes(x=mean_count,xend=mean_count,y=0,yend=0.1,color=keep))+
+         stat_density(geom="line",color="gray", aes(y=..scaled..)) +
          scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x,n=3)) +
          annotation_logticks(sides="b") +
-         xlab("mean count per cell of kept gene") +
+         xlab("UMIs per cell") +
          ylab("scaled density estimate")+
-         true_false_scale, height=3, width=8
+         true_false_scale("gene") , height=3, width=8
 )
 logprint(median(genes_summary.dt[keep==TRUE,mean_count]))
 
@@ -161,19 +166,36 @@ cells_summary.dt[,CDR:=genes_with_counts/n_genes]
 cells_summary.dt[,total_counts_scaled:=total_counts/max(total_counts)]
 
 
-figure(paste0("Distribution of counts over cells – ", data_set),
-     ggplot(cells_summary.dt, aes(x=total_counts))+
-       geom_density(color=NA, fill="gray", aes(y=..scaled..)) +
-       ylab("scaled density estimate") +
-       geom_segment(aes(x=total_counts, xend=total_counts, y=0, yend=0.1, color=keep))+
-       scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x,n=2)) +
-       annotation_logticks(sides="b") +
-       xlab("total counts of cell") +
-       true_false_scale +
-       theme(legend.justification = c(1, 1), legend.position = c(1, 1)),
-     height=3, width=8
+figure("Distribution of counts over cells",
+       ggplot(cells_summary.dt, aes(x=total_counts))+
+         geom_density(color=NA, fill="gray", aes(y=..scaled..)) +
+         ylab("scaled density estimate") +
+         geom_segment(aes(x=total_counts, xend=total_counts, y=0, yend=0.1, color=keep))+
+         stat_density(geom="line",color="gray", aes(y=..scaled..)) +
+         scale_x_log10(breaks = log10_minor_break()) +
+         annotation_logticks(sides="b") +
+         xlab("number of UMIs detected") +
+         true_false_scale("cell") +
+         theme(legend.justification = c(1, 1), legend.position = c(1, 1)),
+       height=3, width=8
 )
-logprint(median(cells_summary.dt[,total_counts]))
+  logprint(median(cells_summary.dt[,total_counts]))
+
+figure("Distribution of detected genes over cells",
+       ggplot(cells_summary.dt, aes(x=genes_with_counts))+
+         geom_density(color=NA, fill="gray", aes(y=..scaled..)) +
+         ylab("scaled density estimate") +
+         geom_segment(aes(x=genes_with_counts, xend=genes_with_counts, y=0.00, yend=0.1, color=keep))+
+         stat_density(geom="line",color="gray", aes(y=..scaled..)) +
+         scale_x_log10(breaks =log10_minor_break()) +
+         annotation_logticks(sides="b") +
+         xlab("number of genes detected") +
+         true_false_scale("cell") +
+         theme(legend.justification = c(1, 1), legend.position = c(1, 1)),
+       height=3, width=8
+)
+logprint(median(cells_summary.dt[,genes_with_counts]))
+logprint(median(cells_summary.dt[keep==TRUE,genes_with_counts]))
 
 cells_summary.dt[,.N,by=keep]
 
