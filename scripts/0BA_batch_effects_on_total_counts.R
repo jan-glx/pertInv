@@ -32,13 +32,31 @@ width=8,height=5
 )
 
 
-dt = counts.dt[, .(mean_counts = mean(count)), by=.(gene_id, batch)]
-dt = dcast(dt, gene_id~batch, value.var="mean_counts",fill=0)
+dt = counts.dt[, .(total_counts = sum(count)), by=.(gene_id, batch)]
+dt = dcast(dt, gene_id~batch, value.var="total_counts",fill=0)
+dt[,p.val:=poisson.test(c(p7d_C2,p7d_B2),r = r)$p.value,by=gene_id]
+dt[,p.adj:=p.adjust(p.val,method="BH")]
 figure("non linear sequencing batch effects",
        ggplot(dt, aes(y=p7d_C2, x=p7d_B2))+
          geom_point()+
          scale_x_log10()+scale_y_log10()+
-         geom_abline(slope=dt[,sum(p7d_C2)/sum(p7d_B2)])+
+         geom_abline(slope=1,intercept=log10((dt[,sum(p7d_C2)/sum(p7d_B2)])))+
          geom_smooth(),
   width=5,height=5
 )
+
+figure("non linear sequencing batch effects",
+       ggplot(dt, aes(y=p7d_C2/p7d_B2, x=p7d_C2+p7d_B2))+
+         geom_point(aes(color=-log10(p.adj)))+
+         scale_x_log10()+scale_y_log10()+
+         geom_hline(yintercept=((dt[,sum(p7d_C2)/sum(p7d_B2)])))+
+        # scale_color_continuous
+         geom_smooth(),
+       width=5,height=5
+)
+
+dt = counts.dt[, .(total_counts = sum(count)), by=.(gene_id, batch)]
+dt = dcast(dt, gene_id~batch, value.var="total_counts",fill=0)
+fdrtool::pval.estimate.eta0(res[,V1],method="bootstrap")
+
+
