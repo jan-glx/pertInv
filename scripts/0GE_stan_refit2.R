@@ -183,13 +183,16 @@ dt[,c(lapply(.SD,mean),N=.N),by=.(D,Rtrue)]
 # -----------
 dat$R <- dat$D
 dat$R <-  R_true
-fit_vb_tm1 <- vb(mm[[ii]], data = dat, output_samples=100, tol_rel_obj=0.001)
+N <- 99
+fit_vb_tm1 <- vb(mm[[ii]], data = dat, output_samples=N, tol_rel_obj=0.001)
 #lp_tm1 <-  lp__vb(fit_vb_tm1)
 #lp_R_term_tm1 <- lp_R_term(fit_vb_tm1)
 
 Rt <- list()
 n <- 100
 p_acceptance <- numeric(n)
+p_acceptance2 <- numeric(n)
+p_acceptance3 <- numeric(n)
 positions <- list()
 output <- list()
 t <- 1
@@ -201,15 +204,15 @@ for (t in seq_len(n)){
   point <- sample(interesting_points,1)[[1]]
   c_ <- point[1]# sample(dat$n_c, 1)
   r <-  point[2]#sample(dat$n_r, 1)
-  cat("D:", dat$D[c_,r],"\tRtm1:",dat$R[c_,r],"\tRtrue:",R_true[c_,r])
+  cat("\tD:", dat$D[c_,r],"\tRtm1:",dat$R[c_,r],"\tRtrue:",R_true[c_,r])
   positions[[t]] <- c("c"=c_, "r"=r)
   output[[t]] <- capture.output(
-    fit_vb_tm1 <- vb(mm[[ii]], data = dat, output_samples=100, tol_rel_obj=0.001,eta=1)
+    fit_vb_tm1 <- vb(mm[[ii]], data = dat, output_samples=N, tol_rel_obj=0.001,eta=1)
   )
 
   dat$R[c_,r] <- !dat$R[c_,r]
   output[[t]] <- c(output[[t]],capture.output(
-    fit_vb_t <- vb(mm[[ii]], data = dat, output_samples=100, tol_rel_obj=0.001,eta=1)
+    fit_vb_t <- vb(mm[[ii]], data = dat, output_samples=N, tol_rel_obj=0.001,eta=1)
   ))
 
   #lp_t <- lp__vb(fit_vb_t)
@@ -221,15 +224,21 @@ for (t in seq_len(n)){
   lp_D_X_Ztm1_at_X_given_D_Z <- lp__vb(fit_vb_tm1, extract(fit_vb_t))
   lp_D_X_Zt_at_X_given_D_Zm1 <- lp__vb(fit_vb_t, extract(fit_vb_tm1))
   log_p_Zt_given_D_over_p_Ztm1_given_D <- log_mean_exp(lp_D_X_Ztm1_at_X_given_D_Z)-log_mean_exp(lp_D_X_Zt_at_X_given_D_Zm1)
+  p_acceptance2[t] <- exp(-log_p_Zt_given_D_over_p_Ztm1_given_D)
+
+  lp_D_X_Ztm1_at_X_given_D_Zm1 <- lp__vb(fit_vb_tm1, extract(fit_vb_tm1))
+  lp_D_X_Zt_at_X_given_D_Z <- lp__vb(fit_vb_t, extract(fit_vb_t))
+  p_acceptance3[t] <- mean(-(lp_D_X_Zt_at_X_given_D_Z-lp_D_X_Ztm1_at_X_given_D_Zm1)<log(runif(N)))
+  p_acceptance[t] <- exp(log_mean_exp(-lp_D_X_Ztm1_at_X_given_D_Zm1)-log_mean_exp(-lp_D_X_Zt_at_X_given_D_Z))
+
   #P_Zt_given_D <- 1/mean(1/(exp(lp_R_term_t[,c_,r])))
   #P_Zt_given_D <- 1/(2 * mean(1/c(exp(lp_R_term_t[,c_,r]),1-exp(lp_R_term_tm1[,c_,r]))))
   #P_Ztm1_given_D <- 1/(2 * mean(1/c(exp(lp_R_term_tm1[,c_,r]),1-exp(lp_R_term_t[,c_,r]))))
   #P_Ztm1_given_D <- 1/mean(1/(exp(lp_R_term_tm1[,c_,r])))
    # should be the same 1/(2*exp(log_mean_exp(log(1)-c(lp_R_term_t[,c_,r],log(1-exp(lp_R_term_tm1[,c_,r]))))))
   #1/(2*exp(log_mean_exp(log(1)-c(lp_R_term_tm1[,c_,r],log(1-exp(lp_R_term_t[,c_,r]))))))
-
-  p_acceptance[t] <- exp(-log_p_Zt_given_D_over_p_Ztm1_given_D)
-  accpeted <- runif(1)< p_acceptance[t]
+  cat("\tp_acceptance:",p_acceptance[t], "\tp_acceptance2:", p_acceptance2[t], "\tp_acceptance3:",p_acceptance3[t])
+  accpeted <- runif(1) < p_acceptance[t]
   if (accpeted) {
     cat("\t+\n")
     #lp_tm1 <- lp_t
