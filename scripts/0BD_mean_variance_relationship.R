@@ -34,15 +34,22 @@ figure("variance explained by count noise (over genes)",
   height=3, width=8
 )
 
+raw_library_size = rowMeans(count_matrix)/mean(count_matrix)
 
 sf.dt <-  data.table(
   cell = rownames(count_matrix),
   raw = 1,
-  TMM = edgeR::calcNormFactors(t(count_matrix)),
-  total_UMIs = mean(count_matrix)/rowMeans(count_matrix)
+  TMM = 1/(edgeR::calcNormFactors(t(count_matrix), method="TMM")*raw_library_size),
+  RLE = 1/(edgeR::calcNormFactors(t(count_matrix), method="RLE")*raw_library_size),
+  UQ = 1/(edgeR::calcNormFactors(t(count_matrix), p=0.97, method="upperquartile")*raw_library_size),
+  MUC = mean(count_matrix)/rowMeans(count_matrix)
 )
-sf.dt[,mine:=count_matrix %*% (1/matrixStats::colVars(count_matrix))]
-sf.dt[,mine:=mean(mine)/mine]
+sf.dt[,wMUC:=count_matrix %*% (1/matrixStats::colVars(count_matrix))]
+sf.dt[,wMUC:=mean(wMUC)/wMUC]
+sf.dt[,wMUC:=exp(log(wMUC)-mean(log(wMUC)))]
+sf.dt[,MUC:=exp(log(MUC)-mean(log(MUC)))]
+
+cor(sf.dt[,-(1:2)])
 
 
 sf.dtm <- melt(sf.dt,id.vars="cell", value.name="sf", variable.name="method")
@@ -52,52 +59,99 @@ summary_genes <- sf.dtm[,dt[copy(.SD),.(mean=mean(counts*sf), var=var(counts*sf)
 #summary_genes[,{f <- isoreg(x=log(mean),log(var)/log(mean)); gam(f$yf)},by=method]
 
 figure("mean-variance relationship of genes",
-       ggplot(summary_genes, aes(x=mean, y=var, group=method, color=method)) + geom_point(alpha=0.3,stroke=0,size=2) +
-         scale_x_log10() + scale_y_log10() + geom_abline(color="black", linetype="dashed") +
-         geom_abline(intercept=log10(0.1), slope=2, color="black", linetype="dotted") +
-         geom_abline(intercept=log10(1), slope=2, color="black", linetype="dotted") +
-         geom_abline(intercept=log10(10), slope=2, color="black", linetype="dotted") +
-         geom_smooth(formula=y ~ poly(x, 3), method="gam", size=1.5, color="black",fill="NA")+
+       ggplot(summary_genes, aes(x=mean, y=var, group=method, color=method)) +
+         geom_abline(color="gray", linetype="dashed") + #Poisson
+         geom_abline(intercept=log10(1), slope=2, color="gray", linetype="dotted") + #lognormal CV=1
+         geom_abline(intercept=log10(1/2^2), slope=2, color="gray", linetype="dotted") +
+         geom_abline(intercept=log10((1/4)^2), slope=2, color="gray", linetype="dotted") +
+         geom_point(alpha=0.5, stroke=0, size=1) +
+         scale_x_log10() + scale_y_log10() +
+         ylab("variance") +
+         geom_smooth(formula=y ~ poly(x, 3), method="gam", size=1.1, color="black",fill="NA")+
          geom_smooth(formula=y ~ poly(x, 3), method="gam") +
-         theme(legend.justification = c(1, 0), legend.position = c(1, 0)),
-       width=5, height=4
+         theme(legend.justification = c(0, 1), legend.position = c(0.05, 1))+
+         annotation_logticks(),
+       width=4.5, height=3.5
 )
 
 figure("mean-variance relationship of genes - zoom",
-       ggplot(summary_genes, aes(x=log(mean), y=log(log(var)/log(mean)), group=method, color=method)) + geom_point(alpha=0.3) +
-         scale_x_log10() +scale_y_log10() +
-         geom_smooth(formula=y ~ poly(x, 3), method="gam", size=1.5, color="black",fill="NA")+
+       ggplot(summary_genes, aes(x=log(mean), y=log(log(var)/log(mean)), group=method, color=method)) +
+         geom_point(alpha=0.5,stroke =0,size=1) +
+         scale_x_log10(breaks = log10_minor_break()) +scale_y_log10(breaks = log10_minor_break()) +
+         geom_smooth(formula=y ~ poly(x, 3), method="gam", size=1.1, color="black",fill="NA")+
          geom_smooth(formula=y ~ poly(x, 3), method="gam") +
-         theme(legend.justification = c(1, 0), legend.position = c(1, 0)),
-       width=5, height=4
+       #  geom_hline(yintercept=log10(log(1)), color="black", linetype="dashed") +
+         stat_function(fun=function(x) log10(log((log(10)+2*x)/x)), color="black", linetype="dotted") +
+         stat_function(fun=function(x) log10(log((log(1)+2*x)/x)), color="black", linetype="dotted") +
+         stat_function(fun=function(x) log10(log((log(0.1)+2*x)/x)), color="black", linetype="dotted") +
+         coord_cartesian(ylim=c(0.1,1.2)),#+
+       #  theme(legend.justification = c(1, 1), legend.position = c(1, 1)),
+       width=6, height=4
 )
-# #setorder(summary_genes,mean)
-# summary_genes[,var_fitted := {f <- isoreg(x=log(mean),log(var)-log(mean)); t=f$yf;t[f$ord]=t;exp(t+log(mean))}, by=method]
-# #ggplot(summary_genes,aes(x=mean))+geom_point(aes(y=var))+geom_point(aes(y=var_fitted),color="red")
-# ggplot(summary_genes[method=="mine"],aes(x=log(mean)))+geom_point(aes(y=(var)/mean))+geom_point(aes(y=(var_fitted)/(mean)),color="red")
-#
-# summary_genes[,var_fitted := {f <- lm(log(var/mean^2)~log(mean)); exp(fitted.values(f))*mean^2}, by=method]
-# ggplot(summary_genes[method=="mine"],aes(x=log(mean)))+geom_point(aes(y=log(var)))+geom_point(aes(y=log(var_fitted)),color="red")
-# ggplot(summary_genes[method=="mine"],aes(x=log(mean)))+geom_point(aes(y=log(var/mean^2)))+geom_point(aes(y=log(var_fitted/mean^2)),color="red")
-# ggplot(summary_genes[method=="mine"],aes(x=log(mean)))+geom_point(aes(y=log(var)/log(mean)))
-#
-# summary_genes[,var_fitted := {f <- mgcv::gam(log(log(var/mean)/mean)~log(mean)); exp(exp(fitted.values(f))*mean)*mean}, by=method]
-# ggplot(summary_genes[method=="mine"],aes(x=(mean)))+geom_point(aes(y=log(var)))+geom_point(aes(y=log(var_fitted)),color="red")
-# ggplot(summary_genes[method=="mine"],aes(x=log(mean)))+geom_point(aes(y=log(log(var/mean)/mean)))+geom_point(aes(y=log(log(var_fitted/mean)/mean)),color="red")
-#
-# figure("mean-variance relationship of genes",
-#        ggplot(summary_genes, aes(x=mean, y=var, group=method, color=method)) + geom_point(alpha=0.3) +
-#          scale_x_log10() + scale_y_log10() + geom_abline(color="black", linetype="dashed") +
-#          geom_abline(intercept=log10(0.1), slope=2, color="black", linetype="dotted") +
-#          geom_abline(intercept=log10(1), slope=2, color="black", linetype="dotted") +
-#          geom_abline(intercept=log10(10), slope=2, color="black", linetype="dotted") +
-#          geom_line(aes(y=var_fitted), size=1.5, color="black")+
-#          geom_line(aes(y=var_fitted))+
-#          #geom_smooth(formula=y ~ poly(x, 3),aes(y=var_fitted), method="gam", size=1.5, color="black",fill="NA")+
-#          #geom_smooth(formula=y ~ poly(x, 3),aes(y=var_fitted), method="gam") +
-#          theme(legend.justification = c(1, 0), legend.position = c(1, 0)),
-#        width=5, height=4
-# )
+
+figure("mean-CV relationship of genes",
+       ggplot(summary_genes, aes(x=mean, y=sqrt(var)/mean, group=method, color=method)) +
+         geom_hline(yintercept=1, color="gray", linetype="dotted") +
+         geom_hline(yintercept=1/2, color="gray", linetype="dotted") +
+         geom_hline(yintercept=1/4, color="gray", linetype="dotted") +
+         geom_abline(intercept=0, slope=-1/2, color="gray", linetype="dashed") + #Poisson
+         geom_point(stroke =0,size=1,alpha=0.5) +
+         scale_x_log10() +scale_y_log10(breaks = log10_minor_break())+
+         ylab("coefficient of variation (CV)") +
+         geom_smooth( formula = y ~ s(x, bs = "cs"), method="gam", size=1.1, color="black")+
+         geom_line(stat="smooth", formula = y ~ s(x, bs = "cs"), method="gam",size=1,alpha=1) +
+         theme(legend.justification = c(0.0, 0), legend.position = "none")+
+         annotation_logticks(),
+       width=3.5, height=3.5
+)
+
+
+
+
+
+
+
+
+# transform ----------------
+wMUC <- count_matrix %*% (1/matrixStats::colVars(count_matrix))
+wMUC <- mean(wMUC)/wMUC
+wMUC <- exp(log(wMUC)-mean(log(wMUC)))
+
+Y <- sweep(Y,1,wMUC,"*")
+
+ancombes2 <-  function(x) {
+  # sigma^2 = mu + phi * mu^2
+  mu <- colMeans(x)
+  simga2 <- matrixStats::colVars(x)
+  phi <- simga2/mu^2 -1/mu
+  asinh(sqrt((sweep(x+3/8,2,1/phi-3/4,"/")))) #
+}
+
+nbinom_transform <- function(X) {
+  apply(X, MARGIN=2, function(x){
+    f <- as.list(fitdistrplus::fitdist(x, distr = "nbinom")$estimate)
+    gamma_scale = f$mu/f$size #((f$size+f$mu)/f$size - 1) # = ($mu/f$size)# theta= 1/beta
+    gamma_shape = f$size # alpha = k
+    #s^2=log(1+1/alpha) # beta=1/alpha , theta= alpha, mu =1 ,mu=k*theta=alpha/beta
+    qnorm(pnbinom(x, f$size, mu=f$mu), sd=sqrt(f$m/f$size))
+  })
+}
+
+quantile_normalizen_cells <- function(X) {
+  apply(X, MARGIN=2, function(x){
+    V <- var(x)
+    M <- mean(x)
+    qnorm(p=frank(x)/(length(x)+1), sd=sqrt(log((V/M-1)/M+1)))
+  })
+}
+
+Y <- count_matrix
+Y <- sweep(Y,1,wMUC,"*")
+Y <- quantile_normalizen_cells(Y)
+GGally::ggpairs(data.table(count_matrix[1:1000, 1:3]))
+GGally::ggpairs(data.table(Y[1:1000, 1:3]))
+
+# irrelevant suf ----------------
 figure("mean-rel. variance relationship of genes",
        ggplot(summary_genes, aes(x=mean, y=var/mean, group=method, color=method)) + geom_point(alpha=0.3) +
          scale_x_log10() + scale_y_log10() + geom_hline(yintercept=1,color="black") +
