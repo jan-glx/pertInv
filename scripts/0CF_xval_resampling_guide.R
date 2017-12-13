@@ -66,14 +66,8 @@ dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
   }
 
   dt = rbind(res_SSq("intercept_only",matrix(rep(1,nrow(guide_matrix),ncol=1))),
-             res_SSq("+size",cbind(1,capture)),
-             res_SSq("+batch",cbind(batch_matrix)),
-             #res_SSq("+capture(wMUC)",cbind(1,capture,log(wMUC))),
-             #res_SSq("+mean_count",cbind(1,log(mean_count))),
-             res_SSq("+guides",cbind(1,guide_matrix))
-
-           #  res_SSq("+capture+batch",cbind(capture,batch_matrix)),
-           #  res_SSq("+guides+capture+batch",cbind(guide_matrix,capture,batch_matrix))
+             res_SSq("sgRNAs detected",cbind(1,guide_matrix)),
+             res_SSq("sgRNAs (resampled)",cbind(1,guide_matrix[sample(nrow(guide_matrix)),]))
   )
   dt[, ':='(fold=fold)]
   setTxtProgressBar(pb,fold)
@@ -83,39 +77,21 @@ dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
 dt2=dt[, .(res_SSq=sum(res_SSq)), by=.(method, gene)]
 dt2=dt2[method!="intercept_only"][dt2[method=="intercept_only"], res_SSq_0 := i.res_SSq, on=.(gene)]
 
-counts.dt = data.table(melt(count_matrix))
-setnames(counts.dt, c("cell","gene","count"))
-count_noise.dt <- counts.dt[,{
-  V=var(count) # crossvaliaton not neccesary for two parameters
-  M=mean(count)
-  alpha=M/(V/M-1)
-  beta=1/(V/M-1)
-  data.table(
-    res_SSq = var(log2(1+rgamma(1000, alpha, scale=beta))),
-    res_SSq_0 = var(log2(1+count)),
-    method="counting noise")}, by=gene]
-
-dt2 <- rbind(dt2, count_noise.dt)
 dt2[, `R^2`:=1-res_SSq/res_SSq_0]
 summary.dt <- dt2[, .(`mean R^2`=mean(`R^2`)), by=.(method)]
 setorder(summary.dt, "mean R^2")[]
 
 
-cross_val_info =
-  if(n_folds_cells>1){
-     "cell crossvalidated"
-  } else {
-    "no crossvalidation"
-  }
-
 figure(
-  paste0("Gene-wise variance decomposition"),
+  paste0("Variance explained by guide (compared to resampled)"),
   ggplot(dt2, aes(x=factor(method),y=`R^2`)) +
+    geom_hline(yintercept=0, linetype="dashed", color="gray")+
     geom_boxplot() +
     #stat_summary(fun.data = "mean_cl_boot", geom="errorbar",size=3, width=0.5, color="red") +
     #scale_shape_identity() +
     #geom_point(shape=124,size=5, alpha=0.5 ,color="black") +
     coord_flip() + ylab(expression(R[CV]^2)) + xlab("") +#+
-    scale_x_discrete(limits=summary.dt[,method], labels=c("+guides"="sgRNAs detected", "+batch"="sequencing batch",  "+size" ="CDR / library size", "counting noise"))
+    scale_x_discrete(limits=summary.dt[,method])
   , width=7, height=3
 )
+
