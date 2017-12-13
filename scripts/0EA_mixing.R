@@ -1,260 +1,175 @@
-# -----------------
+# load data -----------
+
 library(pertInv)
-load(file="results/count_matrix.RData")
-load(file="results/guide_matrix.RData")
-covariates.dt = fread("results/covariates.dt.csv")
+data_set = "GSM2396858_k562_tfs_7"
+# "GSM2396861_k562_ccycle"
+# "GSM2396858_k562_tfs_7"
+# "GSM2396859_k562_tfs_13"
+# "GSM2396860_k562_tfs_highmoi"
+# "GSM2396856_dc_3hr"
+# "GSM2396857_dc_0hr"
+data_folder <- paste0('data_processed/', data_set)
 
-# ---------------
-library(REBayes)
-E_total = unname(rowSums(count_matrix))
-E_cdr = unname(rowSums(count_matrix>0))
-f = Pmix((count_matrix[,1]), exposure=1000, rtol = 1e-10)
+load(file = file.path(data_folder, "batch_matrix.RData"))
+load(file = file.path(data_folder, "count_matrix.RData"))
 
-f = Pmix((count_matrix[,1]), exposure=E_total,v=600)
-plot(f$x,f$y)
+load(file = file.path(data_folder, "guide_matrix.RData"))
+covariates.dt <- fread(file.path(data_folder, "covariates.dt.csv"))
 
-i<-sample(ncol(count_matrix),1)
-f = Pmix((count_matrix[,i]), exposure=E_cdr,v=600)
-plot(f$x,f$y,main=as.character(i))
-hist(log(1+count_matrix[,i]))
-
-plot(E_total,E_cdr)
-cor(count_matrix[,1],E_cdr)
-cor(E_total,count_matrix[,1])
-
-
-x=c(rgamma(10000,9),rgamma(10000,30,1))/10+3
-hist(x,breaks = 30)
-E=rgamma(length(x),4)
-hist(E,breaks = 30)
-y=rpois(length(x),lambda = x*E)
-hist(y,breaks = 30)
-f = Pmix(y,v=600, exposure=E,rtol=1E-10)#,exposure=rnorm(length(y))+10
-plot(f$x,f$y,main=as.character(i))
-hist(log(1+count_matrix[,i]))
+#count_matrix <- count_matrix[,1:100]#count_matrix#count_matrix[1:1000,1:100]
+n_genes <- ncol(count_matrix)
+n_cells <- nrow(count_matrix)
+p <- n_genes
+n <- n_cells
+guide_matrix <- guide_matrix[1:n_cells,]
+batch_matrix <- batch_matrix[1:n_cells,]
 
 
-#install.packages("deconvolveR")
-library(deconvolveR)
-f <-  deconvolveR::deconv(seq(0.001,10,0.03),X=y)
-print(f$stats)
-str(f)
+dt <- data.table(melt(count_matrix))
+setnames(dt, c("cell","gene","count"))
+
+# transform --------------
+
+Y = log2(1+count_matrix) #stabilize_Anscombes(count_matrix) #log2(1+count_matrix)
+X = guide_matrix
 
 
-ggplot(data = as.data.frame(f$stats)) +
-  geom_line(mapping = aes(x = theta, y = SE.g), color = "black", linetype = "solid") +
-  labs(x = expression(theta), y = "Std. Dev")
+wMUC <- count_matrix %*% (1/matrixStats::colVars(count_matrix))
+wMUC <- mean(wMUC)/wMUC
+wMUC <- exp(log(wMUC)-mean(log(wMUC)))
 
 
 
 
-# ------------------
 
-deconv2 <-function (tau, X, y, Q, P, n = 40, family = c("Poisson", "PoissonExp","PoissonExpLog", "Normal", "Binomial"), ignoreZero = TRUE, deltaAt = NULL, c0 = 1, scale = TRUE,
-                    pDegree = 5, aStart = 1,  ...)
-{
-  family <- match.arg(family)
-  if (missing(Q) && missing(P)) {
-    if (family == "Poisson") {
-      m <- length(tau)
-      if (ignoreZero) {
-        supportOfX <- seq_len(n)
-        P <- sapply(tau, function(lam) dpois(x = supportOfX,
-                                             lambda = lam)/(1 - exp(-lam)))
-      }
-      else {
-        supportOfX <- seq.int(from = 0, to = n - 1)
-        P <- sapply(tau, function(w) dpois(x = supportOfX,
-                                           lambda = w))
-      }
-      if (missing(y)) {
-        y <- sapply(supportOfX, function(i) sum(X ==
-                                                  i))
-      }
-      Q <- cbind(1, scale(splines::ns(tau, pDegree), center = TRUE,
-                          scale = FALSE))
-      Q <- apply(Q, 2, function(w) w/sqrt(sum(w * w)))
-    } else if (family == "PoissonExp") {
 
-      if (missing(tau)) {
-        tau <- seq(0, max(y)/mean(X), length.out = n+1)[-1]
-        m <- length(tau)
-      }
-      if (ignoreZero) {
-        P <- sapply(tau, function(lam) dpois(x = y, lambda = lam*X)/(1 - exp(-lam*X)))
-      } else {
-        P <- sapply(tau, function(lam) dpois(x = y, lambda = lam*X))
-      }
+# deconvolve -------------
 
-      Q <- cbind(1, scale(splines::ns(tau, pDegree), center = TRUE, scale = FALSE))
-      Q <- apply(Q, 2, function(w) w/sqrt(sum(w * w)))
-      #browser()
-      y <- 1
-    } else if (family == "PoissonExpLog") {
+ii <- c(975L, sample(ncol(count_matrix), 4), 1991L)#c(867L, 1461L, 871L, 1120L, 47L, 1991L)#c(1135L, 1134L, 1461L, 1133L, 1187L, 1876L)#sample(ncol(count_matrix), 6)
+ii <- ii[c(1,2,4,6)]
+dt <- rbindlist(lapply(ii, function(i) {
+  y = count_matrix[,i]
+  as.data.table(deconv(exp(seq(log(mean(y)/20), log(mean(y)+6*sd(y)), length.out = 200)), X = 1, y = y, #/wMUC
+                       family ="PoissonExp", ignoreZero = FALSE, pDegree=10,c0=20)$stats)[,gene:=colnames(count_matrix)[i]]
+}))
+# plot results -------
+dt2 <-data.table(melt(count_matrix[,ii]))
+setnames(dt2, c("cell","gene", "count"))
 
-      if (missing(tau)) {
-        tau <- seq(log(min(y+1)/10), log(max(y)/mean(X)), length.out = n)
-        m <- length(tau)
-      }
-      if (ignoreZero) {
-        P <- sapply(tau, function(lam) dpois(x = y, lambda = exp(lam)*X)/(1 - exp(-exp(lam)*X)))
-      } else {
-        P <- sapply(tau, function(lam) dpois(x = y, lambda = exp(lam)*X))
-      }
+dt[,panel:="1"]
+dt[,density:="lambda (estimated)"]
+dt[,`:=`(lambda=exp(theta),f=g/exp(theta),f.min=(g-SE.g)/exp(theta),f.max=(g+SE.g)/exp(theta))]
+dt[,`:=`(f_scaled=f/max(f),f.min_scaled=f.min/max(f),f.max_scaled=f.max/max(f)),by=gene]
+dt[,`:=`(g_scaled=g/max(g),g.min_scaled=(g-SE.g)/max(g),g.max_scaled=(g+SE.g)/max(g)),by=gene]
 
-      Q <- cbind(1, scale(splines::ns(tau, pDegree), center = TRUE, scale = FALSE))
-      Q <- apply(Q, 2, function(w) w/sqrt(sum(w * w)))
-      #browser()
-      y <- 1
-    }
-    else if (family == "Normal") {
-      m <- length(tau)
-      r <- round(range(X), digits = 1)
-      xBin <- seq(from = r[1], to = r[2], length.out = n)
-      xBinDropFirst <- xBin[-1]
-      xBinDropLast <- xBin[-length(xBin)]
-      P <- sapply(tau, function(x) pnorm(q = xBinDropFirst,
-                                         mean = x) - pnorm(q = xBinDropLast, mean = x))
-      intervals <- findInterval(X, vec = xBin)
-      y <- sapply(seq_len(n - 1), function(w) sum(intervals ==
-                                                    w))
-      if (scale) {
-        Q1 <- scale(splines::ns(tau, pDegree), center = TRUE,
-                    scale = FALSE)
-        Q1 <- apply(Q1, 2, function(w) w/sqrt(sum(w *
-                                                    w)))
-      }
-      if (!is.null(deltaAt)) {
-        I0 <- as.numeric(abs(tau - deltaAt) < 1e-10)
-        Q <- cbind(I0, Q1)
-      }
-      else {
-        Q <- Q1
-      }
-    }
-    else {
-      m <- length(tau)
-      Q <- splines::ns(tau, pDegree)
-      if (scale) {
-        Q <- scale(Q, center = TRUE, scale = FALSE)
-        Q <- apply(Q, 2, function(w) w/sqrt(sum(w * w)))
-      }
-      P <- sapply(tau, function(w) dbinom(X[, 2], size = X[,
-                                                           1], prob = w))
-      y <- 1
-    }
-  }
-  else {
-    if (!missing(X) || missing(y) || missing(P) || missing(Q)) {
-      stop("P, Q, and y (but not X) must be specified together!")
-    }
-  }
-  p <- ncol(Q)
-  pGiven <- length(aStart)
-  if (pGiven == 1) {
-    aStart <- rep(aStart, p)
-  }
-  else {
-    if (pGiven != p)
-      stop(sprintf("Wrong length (%d) for initial parameter, expecting length (%d)",
-                   pGiven, p))
-  }
-  statsFunction <- function(a) {
-    g <- as.vector(exp(Q %*% a))
-    g <- g/sum(g)
-    G <- cumsum(g)
-    f <- as.vector(P %*% g)
-    yHat <- sum(y) * f
-    Pt <- P/f
-    W <- g * (t(Pt) - 1)
-    qw <- t(Q) %*% W
-    ywq <- (yHat * t(W)) %*% Q
-    I1 <- qw %*% ywq
-    aa <- sqrt(sum(a^2))
-    sDot <- c0 * a/aa
-    sDotDot <- (c0/aa) * (diag(length(a)) - outer(a, a)/aa^2)
-    R <- sum(diag(sDotDot))/sum(diag(I1))
-    I2 <- solve(I1 + sDotDot)
-    bias <- as.vector(-I2 %*% sDot)
-    Cov <- I2 %*% (I1 %*% t(I2))
-    Dq <- (diag(g) - outer(g, g)) %*% Q
-    bias.g <- Dq %*% bias
-    Cov.g <- Dq %*% Cov %*% t(Dq)
-    se.g <- diag(Cov.g)^0.5
-    D <- diag(length(tau))
-    D[lower.tri(D)] <- 1
-    Cov.G <- D %*% (Cov.g %*% t(D))
-    se.G <- diag(Cov.G)^0.5
-    mat <- cbind(tau, g, se.g, G, se.G, bias.g)
-    colnames(mat) = c("theta", "g", "SE.g", "G", "SE.G",
-                      "Bias.g")
-    list(S = R, cov = Cov, cov.g = Cov.g, mat = mat)
-  }
-  loglik <- function(a) {
-    g <- exp(Q %*% a)
-    g <- as.vector(g/sum(g))
-    f <- as.vector(P %*% g)
-    value <- -sum(y * log(f)) + c0 * sum(a^2)^0.5
-    Pt <- P/f
-    W <- g * (t(Pt) - 1)
-    qw <- t(Q) %*% W
-    aa <- sqrt(sum(a^2))
-    sDot <- c0 * a/aa
-    attr(value, "gradient") <- if (identical(y, 1)) -rowSums(qw) + sDot else  -(qw %*% y) + sDot
-    value
-  }
-  result <- stats::nlm(f = loglik, p = aStart, gradtol = 1e-10,
-                       ...)
-  if (result$code>2) warning("nlm termination code ", result$code)
-  mle <- result$estimate
-  stats <- statsFunction(mle)
-  list(mle = mle, Q = Q, P = P, S = stats$S, cov = stats$cov,
-       cov.g = stats$cov.g, stats = stats$mat, loglik = loglik,
-       statsFunction = statsFunction)
-}
-# --------------
-x=c(rgamma(10000,9),rgamma(10000,30,1))/10+3
-#hist(x,breaks = 30)
-E=rgamma(length(x),4)
-E<- E/mean(E)
-#hist(E,breaks = 30)
-y=rpois(length(x),lambda = x*E)
-library(data.table)
-fwrite(data.table(x=x,E=E,y=y), "deconv.csv")
+dt2[,panel:="2"]
+dt2[,density:="Y (empirical)"]
+dt[, gene_short :=tstrsplit(as.character(gene),"_")[[2]]]
+dt2[, gene_short :=tstrsplit(as.character(gene),"_")[[2]]]
 
-#hist(y,breaks = 30)
+dt3 <- dt2[,.(..count..=.N), by=c("gene","gene_short","count","density")]
+dt3[,ncount:=..count../max(..count..),by="gene"]
 
-f <-  deconv2(tau=seq(0,10,0.1)[-1],X=E,y=y, family ="PoissonExp", n=200,ignoreZero = FALSE,c0=10,pDegree=10)
-f <-  deconv2(tau=seq(0,10,0.1)[-1],X=E,y=y, family ="PoissonExp", n=200,ignoreZero = FALSE,c0=1, aStart = f$mle,pDegree=10)
-ggplot(data = as.data.table(f$stats)) +
-  geom_smooth(stat="identity", mapping = aes(x = theta, y = g, ymin = g-SE.g, ymax =g+ SE.g )) +
-  labs(x = expression(theta), y = expression(hat(g)))
-# -------------
+
+figure("Bayesian deconvolution",
+       ggplot(data = dt3, aes(color=density,fill=density)) +
+         geom_bar(aes(x=count, y=ncount), stat="identity")+
+         geom_ribbon(data=dt, aes(x=theta,ymin=g.min_scaled,ymax=g.max_scaled),color=NA,alpha=0.5)+
+         geom_line(data=dt, aes(x=theta,y=g_scaled))+
+         labs(x = expression(lambda), y = "scaled density") +
+         facet_wrap("gene_short", scales="free_x",nrow=2) +
+         scale_color_manual(values=cbPalette[-1]) +
+         scale_fill_manual(values=cbPalette[-1]) +
+        theme(legend.justification = c(1, 1), legend.position = c(1, 1)),
+       width=8,height=4
+)
+
+
+1
+
+
+
+
+
+
+
+## LOG scale bullshit -----------------------
+
+
+# deconvolve -------------
 
 ii <- sample(ncol(count_matrix), 6)
 
 dt <- rbindlist(lapply(ii, function(i) {
   y = count_matrix[,i]
-  as.data.table(deconv2(seq(log(1/100), log(10*mean(y)), length.out = 100), X= 1, y = y,
+  as.data.table(deconv(seq(log(mean(y)/30), log(mean(y)+4*sd(y)), length.out = 100), X = 1/wMUC, y = y,
                         family ="PoissonExpLog", ignoreZero = FALSE, pDegree=10,c0=20)$stats)[,gene:=colnames(count_matrix)[i]]
 }))
-
+# plot results -------
 dt2 <-data.table(melt(count_matrix[,ii]))
 setnames(dt2, c("cell","gene", "count"))
 
 dt[,panel:="1"]
+dt[,density:="lambda (estimated)"]
+dt[,`:=`(lambda=exp(theta),f=g/exp(theta),f.min=(g-SE.g)/exp(theta),f.max=(g+SE.g)/exp(theta))]
+dt[,`:=`(f_scaled=f/max(f),f.min_scaled=f.min/max(f),f.max_scaled=f.max/max(f)),by=gene]
+
 dt2[,panel:="2"]
-ddt = rbindlist(list(dt,dt2),fill=TRUE)
+dt2[,density:="Y (empirical)"]
+dt[, gene_short :=tstrsplit(as.character(gene),"_")[[2]]]
+dt2[, gene_short :=tstrsplit(as.character(gene),"_")[[2]]]
+
+dt3 <- dt2[,.(..count..=.N), by=c("gene","gene_short","count","density")]
+dt3[,ncount:=..count../max(..count..),by="gene"]
 
 
 figure("Bayes deconv: hist & g",
+       ggplot(data = dt3, aes(color=density,fill=density)) +
+         geom_bar(aes(x=count, y=ncount), stat="identity")+
+         geom_ribbon(data=dt, aes(x=lambda,ymin=f.min_scaled,ymax=f.max_scaled),color=NA,alpha=0.5)+
+         geom_line(data=dt, aes(x=lambda,y=f_scaled))+
+         labs(x = expression(lambda), y = "scaled density") +
+         facet_wrap("gene_short", scales="free_x",nrow=3) +
+         scale_color_manual(values=cbPalette[-1]) +
+         scale_fill_manual(values=cbPalette[-1])
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ddt = rbindlist(list(dt,dt2),fill=TRUE)
+
+
+ddt[,max_g:=max(g, na.rm = TRUE), by=gene]
+
+#expression(hat(g)(lambda))
+figure("Bayes deconv: hist & g",
+       ggplot(data = ddt, aes(color=panel,fill=panel)) +
+         stat_summary(data=ddt[panel=="2"], geom="bar",fun.data = function(data){data.table(x=1:5)[,.(..count..=.N),by=x][,y:=..count../max(..count..)]}, mapping=aes(x=count, y=count,color=panel,fill=panel))+
+         geom_smooth(data= ddt[panel=="1"],stat="identity", mapping = aes(x = exp(theta), y = g/exp(theta), ymin = (g-SE.g)/exp(theta), ymax = (g+ SE.g)/exp(theta), color=panel)) +
+         labs(x = expression(lambda), y = "scaled density") +
+         facet_wrap("gene_short", scales="free_x",shrink=FALSE) +
+         scale_color_manual(values=cbPalette[-1]) +
+         scale_fill_manual(values=cbPalette[-1])
+)
+
+figure("Bayes deconv: hist & g (log scale)",
        ggplot(data = ddt) +
          geom_smooth(data= ddt[panel=="1"],stat="identity", mapping = aes(x = theta, y = g, ymin = g-SE.g, ymax =g+ SE.g, color=gene)) +
          labs(x = expression(log(theta)), y = expression(hat(g)(theta))) +
          geom_histogram(data=ddt[panel=="2"], aes(x=log(pmax(count,1/100)), y=..count.., color=gene), position=position_dodge(0.1),fill=NA,breaks = log(c(1/100,1:100)))+ #(log(c(1/100,1:10))+log(1:11))/2
          coord_cartesian(xlim=c(-5,5))+facet_grid(panel~.,scales="free_y")
 )
-
 figure("Bayes deconv: ECDF & G",
        ggplot(data = ddt) +
          geom_smooth(data= ddt[panel=="1"],stat="identity", mapping = aes(x = exp(theta), y = G, ymin = G-SE.G, ymax =G+ SE.G, color=gene)) +
@@ -264,10 +179,10 @@ figure("Bayes deconv: ECDF & G",
 )
 figure("Bayes deconv: ECDF & G (log scale)",
        ggplot(data = ddt) +
-         geom_smooth(data= ddt[panel=="1"],stat="identity", mapping = aes(x = theta, y = G, ymin = G-SE.G, ymax =G+ SE.G, color=gene)) +
-         labs(x = expression(log(theta)), y = expression(hat(G)(theta))) +
-         stat_ecdf(data=ddt[panel=="2"], aes(x=count, color=gene))+ #(log(c(1/100,1:10))+log(1:11))/2   log(pmax(count,1/10000))
-         coord_cartesian(xlim=c(-5,3))
+         geom_smooth(data= ddt[panel=="1"],stat="identity", mapping = aes(x = exp(theta), y = G, ymin = G-SE.G, ymax =G+ SE.G, color=panel)) +
+         labs(x = expression(theta), y = expression(hat(G)(theta))) +
+         stat_ecdf(data=ddt[panel=="2"], aes(x=pmax(count,0.0001), color=panel))+ #(log(c(1/100,1:10))+log(1:11))/2   log(pmax(count,1/10000))
+         coord_cartesian(xlim=exp(range(dt$theta)))+scale_x_log10()+facet_grid(gene_short~.)
 )
 
 # ---------------
