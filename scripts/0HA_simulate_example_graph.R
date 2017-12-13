@@ -145,8 +145,8 @@ dt[,':='(S="S=\\{ \\}",
 
 
 dt4 <- rbind(dt,dt2,dt3,fill=TRUE)
-dt4[, S:= factor(S, levels = unique(S), labels = latex2exp::TeX(unique(S), output="character"))]
-dt4[, environment:= factor(environment, levels = unique(environment), labels = latex2exp::TeX(unique(environment), output="character")))]
+dt4[, S := factor(S, levels = unique(S), labels = latex2exp::TeX(unique(S), output="character"))]
+dt4[, environment:= factor(environment, levels = unique(environment), labels = latex2exp::TeX(unique(environment), output="character"))]
 
 figure("ICP-Visualization: |S|<=2",
        ggplot(dt4, aes(y=Y_adj, x="", color=environment))+
