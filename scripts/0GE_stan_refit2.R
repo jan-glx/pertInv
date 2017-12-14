@@ -160,24 +160,58 @@ ii <- 4
 mm[[ii]] <-  stan_model_builder("stan_lib/1C_fit_vec_nb_disc.stan")
 
 # ----------------------------------
-
-dat$R <- dat$D
-fit_vb_tm1 <- vb(mm[[ii]], data = dat, output_samples=1000, tol_rel_obj=0.0005)
-lp_tm1 <-  lp__vb(fit_vb_tm1)
-lp_R_term_D <- lp_R_term(fit_vb_tm1)
+dt <- data.table()
 dat$R <- R_true
-fit_vb_tm1 <- vb(mm[[ii]], data = dat, output_samples=1000, tol_rel_obj=0.0005)
-lp_tm1 <-  lp__vb(fit_vb_tm1)
-lp_R_term_R <- lp_R_term(fit_vb_tm1)
+N <- 1000
+p_Z_given_D <- numeric(4)
+n <- 500
+pb = progress::progress_bar$new(format = " [:bar] :percent eta: :eta",
+                                total =  (n),
+                                clear = FALSE, width= 60)
+for (i in seq_len(n)) {
+  point <- sample(interesting_points,1)[[1]]
+  c_ <- point[1]# sample(dat$n_c, 1)
+  r <-  point[2]
+  dat$R <- R_true
+  dat$R[c_,r] <- 0
+  capture.output(fit_vb_t <- vb(mm[[ii]], data = dat, output_samples=N, tol_rel_obj=0.0005))
+  dat$R[c_,r] <- 1
+  capture.output(fit_vb_star <- vb(mm[[ii]], data = dat, output_samples=N, tol_rel_obj=0.0005))
 
-dt <- data.table(D=as.vector(dat$D),Rtrue=as.vector(R_true),
-           P_R_at_D=as.vector( 1/colMeans(1/(1-exp(lp_R_term_D)))),
-           P_R_at_R=as.vector( 1/colMeans(1/(1-exp(lp_R_term_R))))
-           )
-dt[D==0,P_R_at_D:=1-P_R_at_D]
-dt[Rtrue==0,P_R_at_R:=1-P_R_at_R]
-dt[,c(lapply(.SD,mean),N=.N),by=.(D,Rtrue)]
+  lp_D_X_Zt_at_X_given_D_Zstar <- lp__vb(fit_vb_t, extract(fit_vb_star))
+  lp_D_X_Zstar_at_X_given_D_Zt <- lp__vb(fit_vb_star, extract(fit_vb_t))
+  lp_D_X_Zt_at_X_given_D_Zt <- lp__vb(fit_vb_t, extract(fit_vb_t))
+  lp_D_X_Zstar_at_X_given_D_Zstar <- lp__vb(fit_vb_star, extract(fit_vb_star))
 
+
+  #log_p_Zstar_given_D_over_p_Zt_given_D <- log_mean_exp(lp_D_X_Zt_at_X_given_D_Zstar)-log_mean_exp(lp_D_X_Zstar_at_X_given_D_Zt)
+  p_Z_given_D[1] <- 1/(1+exp((log_sum_exp(c(0,log_mean_exp(lp_D_X_Zstar_at_X_given_D_Zt - lp_D_X_Zt_at_X_given_D_Zt)))-log_sum_exp(c(0,log_mean_exp(lp_D_X_Zt_at_X_given_D_Zstar - lp_D_X_Zstar_at_X_given_D_Zstar))))))
+  p_Z_given_D[2] <- 1/(1+exp(-(log_mean_exp(lp_D_X_Zt_at_X_given_D_Zstar)-log_mean_exp(lp_D_X_Zstar_at_X_given_D_Zt))))
+  p_Z_given_D[3] <- mean(1/(1+exp(-(lp_D_X_Zstar_at_X_given_D_Zstar-lp_D_X_Zt_at_X_given_D_Zt)))<runif(N))
+  p_Z_given_D[4] <- 1/(1+exp((log_mean_exp(-lp_D_X_Zt_at_X_given_D_Zt)-log_mean_exp(-lp_D_X_Zstar_at_X_given_D_Zstar))))
+
+  dt <- rbind(dt,data.table(p_Z_given_D=p_Z_given_D, method=1:4, R=R_true[c_,r], D=dat$D[c_,r]))
+  print(dt[,as.data.table(mean_sd(p_Z_given_D))[,total_acceptance:=mean(p_Z_given_D>runif(.N))],by=.(method,R,D)])
+  pb$tick()
+}
+
+ggplot(dt,aes(y=1-p_Z_given_D,x=as.factor(method)))+
+  geom_violin(color=NA,fill=cbbPalette[2],scale = "width")+
+  geom_jitter_normal(shape=3, width=0.1,size=3,alpha=0.5,stroke=0,color="black")+
+  #stat_summary(fun.ymin="mean",fun.ymax="mean",fun.y="mean",geom="errorbar",color="black",width=0.5,size=2)+
+  stat_summary(fun.data=mean_se,color="red",size=2,geom="pointrange")+
+  facet_grid(R~D,labeller = "label_both")
+
+figure("computing posterior of discrete paramter",
+ggplot(dt[method!=3],aes(y=1-p_Z_given_D,x=factor(method,1:4,c("stabilized","inverse","averaged direct","direct"))))+
+  geom_violin(color=NA,fill=cbbPalette[2],scale = "width")+
+  geom_jitter_normal(shape=3, width=0.1,size=3,alpha=0.5,color="black")+
+  #stat_summary(fun.ymin="mean",fun.ymax="mean",fun.y="mean",geom="errorbar",color="black",width=0.5,size=2)+
+  stat_summary(fun.data=pertInv::quantile_ci, color="red",size=1,geom="pointrange")+
+  facet_grid(R~D,labeller = "label_both")+xlab("method")+ylab(latex2exp::TeX("P(R_{cr}|R_{-cr},D,Y)")),
+width=6.5,height=4.5)
+#+  scale_shape_identity()
+#+  scale_shape_identity()
 # ----------------------------------
 
 # -----------
@@ -189,10 +223,11 @@ fit_vb_tm1 <- vb(mm[[ii]], data = dat, output_samples=N, tol_rel_obj=0.001)
 #lp_R_term_tm1 <- lp_R_term(fit_vb_tm1)
 
 Rt <- list()
-n <- 100
+n <- 30
 p_acceptance <- numeric(n)
 p_acceptance2 <- numeric(n)
 p_acceptance3 <- numeric(n)
+p_acceptance4 <- numeric(n)
 positions <- list()
 output <- list()
 t <- 1
@@ -221,15 +256,21 @@ for (t in seq_len(n)){
   #p_acceptance[t] <- exp(lp_R_term_t[c_,r])
   #lp_D_X1_Z1 <- lp__vb(fit_vb_t, extract(fit_vb_t))
   #lp_D_X0_Z0 <- lp__vb(fit_vb_tm1, extract(fit_vb_tm1))
-  lp_D_X_Ztm1_at_X_given_D_Z <- lp__vb(fit_vb_tm1, extract(fit_vb_t))
-  lp_D_X_Zt_at_X_given_D_Zm1 <- lp__vb(fit_vb_t, extract(fit_vb_tm1))
-  log_p_Zt_given_D_over_p_Ztm1_given_D <- log_mean_exp(lp_D_X_Ztm1_at_X_given_D_Z)-log_mean_exp(lp_D_X_Zt_at_X_given_D_Zm1)
+  lp_D_X_Ztm1_at_X_given_D_Zt <- lp__vb(fit_vb_tm1, extract(fit_vb_t))
+  lp_D_X_Zt_at_X_given_D_Ztm1 <- lp__vb(fit_vb_t, extract(fit_vb_tm1))
+  lp_D_X_Ztm1_at_X_given_D_Ztm1 <- lp__vb(fit_vb_tm1, extract(fit_vb_tm1))
+  lp_D_X_Zt_at_X_given_D_Zt <- lp__vb(fit_vb_t, extract(fit_vb_t))
+  log_p_Zt_given_D_over_p_Ztm1_given_D <- log_mean_exp(lp_D_X_Ztm1_at_X_given_D_Zt)-log_mean_exp(lp_D_X_Zt_at_X_given_D_Ztm1)
   p_acceptance2[t] <- exp(-log_p_Zt_given_D_over_p_Ztm1_given_D)
 
   lp_D_X_Ztm1_at_X_given_D_Zm1 <- lp__vb(fit_vb_tm1, extract(fit_vb_tm1))
   lp_D_X_Zt_at_X_given_D_Z <- lp__vb(fit_vb_t, extract(fit_vb_t))
   p_acceptance3[t] <- mean(-(lp_D_X_Zt_at_X_given_D_Z-lp_D_X_Ztm1_at_X_given_D_Zm1)<log(runif(N)))
-  p_acceptance[t] <- exp(log_mean_exp(-lp_D_X_Ztm1_at_X_given_D_Zm1)-log_mean_exp(-lp_D_X_Zt_at_X_given_D_Z))
+  p_acceptance4[t] <- exp(log_mean_exp(-lp_D_X_Ztm1_at_X_given_D_Zm1)-log_mean_exp(-lp_D_X_Zt_at_X_given_D_Z))
+
+
+
+  p_acceptance[t] <- 1/(1+exp(-(log_sum_exp(c(0,log_mean_exp(lp_D_X_Zt_at_X_given_D_Ztm1 - lp_D_X_Ztm1_at_X_given_D_Ztm1)))-log_sum_exp(c(0,log_mean_exp(lp_D_X_Ztm1_at_X_given_D_Zt - lp_D_X_Zt_at_X_given_D_Zt))))))
 
   #P_Zt_given_D <- 1/mean(1/(exp(lp_R_term_t[,c_,r])))
   #P_Zt_given_D <- 1/(2 * mean(1/c(exp(lp_R_term_t[,c_,r]),1-exp(lp_R_term_tm1[,c_,r]))))
@@ -237,7 +278,7 @@ for (t in seq_len(n)){
   #P_Ztm1_given_D <- 1/mean(1/(exp(lp_R_term_tm1[,c_,r])))
    # should be the same 1/(2*exp(log_mean_exp(log(1)-c(lp_R_term_t[,c_,r],log(1-exp(lp_R_term_tm1[,c_,r]))))))
   #1/(2*exp(log_mean_exp(log(1)-c(lp_R_term_tm1[,c_,r],log(1-exp(lp_R_term_t[,c_,r]))))))
-  cat("\tp_acceptance:",p_acceptance[t], "\tp_acceptance2:", p_acceptance2[t], "\tp_acceptance3:",p_acceptance3[t])
+  cat("\tp_acceptance:",p_acceptance[t], "\tp_acceptance2:", p_acceptance2[t], "\tp_acceptance3:",p_acceptance3[t], "\tp_acceptance4:",p_acceptance4[t])
   accpeted <- runif(1) < p_acceptance[t]
   if (accpeted) {
     cat("\t+\n")
