@@ -6,24 +6,64 @@ library(glmnet)
 library(mvtnorm)
 library(caret)
 library(boot)
+library(pertInv)
+data_set = "GSM2396858_k562_tfs_7"
+# "GSM2396861_k562_ccycle"
+# "GSM2396858_k562_tfs_7"
+# "GSM2396859_k562_tfs_13"
+# "GSM2396860_k562_tfs_highmoi"
+# "GSM2396856_dc_3hr"
+# "GSM2396857_dc_0hr"
+data_folder <- paste0('data_processed/', data_set)
 
-load(file="results/count_matrix.RData")
-load(file="results/guide_matrix.RData")
+load(file = file.path(data_folder, "batch_matrix.RData"))
+load(file = file.path(data_folder, "count_matrix.RData"))
 
-n = nrow(count_matrix)
-p = ncol(count_matrix)
+load(file = file.path(data_folder, "guide_matrix.RData"))
+covariates.dt <- fread(file.path(data_folder, "covariates.dt.csv"))
 
-guide_matrix = guide_matrix[sample(n),]
+count_matrix <- count_matrix#[1:1000,1:100]#count_matrix#count_matrix[1:1000,1:100]
+n_genes <- ncol(count_matrix)
+n_cells <- nrow(count_matrix)
+p <- n_genes
+n <- n_cells
+batch_matrix <- batch_matrix[seq_len(n_cells),,drop=F]
+batch_matrix <- batch_matrix[,colSums(batch_matrix)>0,drop=F]>0
+guide_matrix <- guide_matrix[seq_len(n_cells),,drop=F]
+guide_matrix <- guide_matrix[,colSums(guide_matrix)>0,drop=F]
 
-covariates_dt = fread("results/covariates.dt.csv")
-batch = model.matrix(~batch-1,data=covariates_dt[, .(batch=unique(batch)), keyby=i.cell_id])
+
+target_genes <- stringr::str_match(colnames(guide_matrix),"^(?:c|m|p)_(?:sg)?((?:.*(?=_))|(?:INTERGENIC))(?:_)?\\d+$")[,2]
+is_intergenic <- rowSums(guide_matrix[,target_genes=="INTERGENIC"])
+
+guide_matrix <- guide_matrix[,target_genes!="INTERGENIC",drop=F]
+#guide_matrix <- guide_matrix[,1:3]
+
+target_genes <- stringr::str_match(colnames(guide_matrix),"^(?:c|m|p)_(?:sg)?((?:.*(?=_))|(?:INTERGENIC))(?:_)?\\d+$")[,2]
+
+wMUC <- count_matrix %*% (1/matrixStats::colVars(count_matrix))
+wMUC <- mean(wMUC)/wMUC
+wMUC <- exp(log(wMUC)-mean(log(wMUC)))
+
+Y <- count_matrix
+Y <- sweep(Y,1,wMUC,"*")
+Y <- log2(1+Y)#quantile_normalizen_cells(Y)
 
 
-Y = log2(1+count_matrix) #stabilize_Anscombes(count_matrix) #log2(1+count_matrix)
+capture = local({
+  cdr = rowMeans(count_matrix[,]>0)
+  mean_count = log2(1+rowMeans(count_matrix[,]))
+  as.matrix(data.table(cdr,cdr^2,cdr^3,mean_count,mean_count^2,mean_count^3))
+})
+
+batch <- batch_matrix
+
+X_ <- if (ncol(batch_matrix)>1) data.table(guide_matrix, wMUC=log(wMUC),capture, batch_matrix[,-1]) else data.table(guide_matrix, wMUC=log(wMUC),capture)
+
 X = guide_matrix
-
-n_folds_cells = 1
-n_folds_genes = 5
+#-------
+n_folds_cells = 5
+n_folds_genes = 1
 
 if (!(n_folds_genes==n_folds_cells || n_folds_genes==1 || n_folds_cells==1)) stop("n_fold_cells and n_fold_genes must be equal or 1")
 n_folds = max(n_folds_genes, n_folds_cells)
@@ -31,7 +71,9 @@ n_folds = max(n_folds_genes, n_folds_cells)
 folds_cells = createFolds(seq_len(n), k = n_folds_cells, list = TRUE, returnTrain = FALSE)
 folds_genes = createFolds(seq_len(p), k = n_folds_genes, list = TRUE, returnTrain = FALSE)
 
-pb = txtProgressBar(min = 0, max = n_folds, initial = 0,  style = 3)
+pb =  progress::progress_bar$new(format = " [:bar] :percent eta: :eta",
+                                     total =  6*n_folds,
+                                     clear = FALSE, width= 60)
 
 dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
 
@@ -39,10 +81,6 @@ dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
   train_cells = if (n_folds_cells>1) seq_len(n)[-test_cells] else test_cells
   test_genes = folds_genes[[min(fold, n_folds_genes)]]
   train_genes = if (n_folds_genes>1) seq_len(p)[-test_genes] else test_genes
-
-  cdr = rowMeans(Y[,train_genes]>0)
-  mean_count = rowMeans(Y[,train_genes])
-  capture = as.matrix(data.table(cdr,cdr^2,cdr^3,mean_count,mean_count^2,mean_count^3))
 
   adj_guide_matrix = function(X, X_covariates) {
     n_guides = ncol(X)
@@ -74,6 +112,7 @@ dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
   res_SSq = function(X) {
     fit = lm(Y[train_cells, test_genes]~.-1, as.data.table(X[train_cells,]))
     residuals = Y[test_cells,test_genes]-predict(fit, as.data.table(X[test_cells,]))
+    pb$tick()
     rowSums(residuals^2)
   }
   1
@@ -81,18 +120,15 @@ dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
   dt = data.table(
     fold=fold,
     res_SSq = c(res_SSq(matrix(rep(1,nrow(guide_matrix),ncol=1))),
-                res_SSq(cbind(1,guide_matrix)),
-                res_SSq(cbind(1,capture)),
-                res_SSq(cbind(batch)),
                 res_SSq(cbind(capture,batch)),
                 res_SSq(cbind(guide_matrix,capture,batch)),
-                res_SSq(cbind(guide_matrix,capture,batch, adj_guide_matrix(guide_matrix, cbind(capture,batch)))),
-                res_SSq(cbind(1,adj_guide_matrix(guide_matrix, cbind(capture,batch))))
+                res_SSq(cbind(capture,batch, adj_guide_matrix(guide_matrix, cbind(capture,batch)))),
+                res_SSq(cbind(capture,batch, adj_guide_matrix(guide_matrix[sample(nrow(guide_matrix)),], cbind(capture,batch))))
                 ),
-    method = rep(c("intercept_only","+guides","+capture","+batch","+capture+batch","+guides+capture+batch","+guides+capture\n+adj.guides+batch","+adj.guides"), each=length(test_cells)),
+    method = rep(c("intercept_only","+capture+batch","+guides+capture+batch","+capture+batch\n+adj.guides","+capture+batch\n+adj.guides (resampled)"), each=length(test_cells)),
     cell = test_cells
   )
-  setTxtProgressBar(pb,fold)
+  pb$tick()
   dt
 }))
 
@@ -112,7 +148,7 @@ cross_val_info =
   }
 
 figure(
-  paste0("Variance explained through different adjustments - ", cross_val_info,"\nresampled guide matrix2"),
+  paste0("Variance explained through different adjustments - ", cross_val_info,"\nwith resampling"),
   ggplot(R2_dt, aes(x=factor(method),y=`R^2`)) + geom_bar(stat="identity") +
     geom_errorbar(aes(ymin=lower, ymax=upper),width=2/3) +
     coord_flip() + ylab(expression(R[CV]^2)) + xlab("")+
