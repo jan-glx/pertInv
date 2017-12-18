@@ -30,17 +30,17 @@ figure <- function(title, p, sub_title = if(exists("data_set")) data_set else ch
 #'
 #'
 #' @export
-figure1 <- function(title_, p, sub_title=FALSE, title=!sub_title){
+figure1 <- function(title_, p, sub_title=FALSE, title=!sub_title, width=4, height=4, units = 'in', res=600, ...){
   p <- substitute(p)
 
-  pdf(paste0('results/', make.names(title_),".pdf"))
+  pdf(paste0('results/', make.names(title_),".pdf"), width=width, height=height, ...)
   res <- withVisible(eval(p))
   if (res$visible) print(res$value)
-  if(sub_title) title(sub=title_)
-  if(title) title(title_)
+  #if(sub_title) title(sub=title_)
+  #if(title) title(title_)
   dev.off()
 
-  png(paste0('results/', make.names(title_),".png"),  width = 6, height = 6, units = 'in',res=600)
+  png(paste0('results/', make.names(title_),".png"), width=width, height=height, units=units, res=res, ..., type="cairo")
   res <- withVisible(eval(p))
   if (res$visible) print(res$value)
   if(sub_title) title(sub=title_)
@@ -166,6 +166,11 @@ geom_split_violin <- function (mapping = NULL, data = NULL, stat = "ydensity", p
 #' @export
 cross_entropy_loss <-  function(p, label) -sum(log((!label)+(2*label-1)*p))/length(label)
 
+#' @export
+cross_entropy_loss_llr = function(LLR, label) {
+  mean(log_sum_exp(0, LLR*(1-2*label)))
+}
+
 
 #' @export
 mean_sd <- function (x, mult = 1)
@@ -259,9 +264,17 @@ index_samples <-  function(samples, is) {
 }
 
 #' @export
-log_sum_exp <- function(x) {
-  xm<- max(x)
-  log(sum(exp(x - xm))) + xm
+log_sum_exp <- function(x, y=NULL) {
+  if (missing(y)){
+    xm <- max(x)
+    log(sum(exp(x - xm))) + xm
+  } else {
+    xm <- pmax(x, y)
+    res <- log(rowSums(cbind(as.vector(exp(x - xm)), as.vector(exp(y - xm))))) + as.vector(xm)
+    d <- pmax(dim(x), dim(y))
+    if (length(d)) dim(res) <- d
+    res
+  }
 }
 
 #' @export
