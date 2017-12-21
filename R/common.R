@@ -34,24 +34,24 @@ figure1 <- function(title_, p, sub_title=FALSE, title=!sub_title, width=4, heigh
   p <- substitute(p)
 
   pdf(paste0('results/', make.names(title_),".pdf"), width=width, height=height, ...)
-  res <- withVisible(eval(p))
-  if (res$visible) print(res$value)
+  ret <- withVisible(eval(p))
+  if (ret$visible) print(ret$value)
   #if(sub_title) title(sub=title_)
   #if(title) title(title_)
   dev.off()
 
-  png(paste0('results/', make.names(title_),".png"), width=width, height=height, units=units, res=res, ..., type="cairo")
-  res <- withVisible(eval(p))
-  if (res$visible) print(res$value)
+  png(paste0('results/', make.names(title_),".png"), width=width, height=height, units=units, res=res, type="cairo", ...)
+  ret <- withVisible(eval(p))
+  if (ret$visible) print(ret$value)
   if(sub_title) title(sub=title_)
   if(title) title(title_)
   dev.off()
 
 
-  res <- withVisible(eval(p))
+  ret <- withVisible(eval(p))
   if(sub_title) title(sub=title_)
   if(title) title(title_)
-  if (res$visible) res$value else invisible(res$value)
+  if (ret$visible) ret$value else invisible(ret$value)
 }
 
 #' @export
