@@ -72,7 +72,7 @@ folds_cells = createFolds(seq_len(n), k = n_folds_cells, list = TRUE, returnTrai
 folds_genes = createFolds(seq_len(p), k = n_folds_genes, list = TRUE, returnTrain = FALSE)
 
 pb =  progress::progress_bar$new(format = " [:bar] :percent eta: :eta",
-                                     total =  6*n_folds,
+                                     total =  9*n_folds,
                                      clear = FALSE, width= 60)
 
 dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
@@ -107,6 +107,35 @@ dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
     X_new
   }
 
+  adj_guide_matrix_fdr = function(X, X_covariates) {
+    n_guides = ncol(X)
+    X_new = copy(X)
+    X = cbind(X, X_covariates)
+    sigma = sqrt(sum(matrixStats::colVars(Y[train_cells, train_genes])))
+    LL_same <- function(res)    rowSums(dnorm(res, sd=sigma, log = TRUE))
+
+    fit = lm(Y[train_cells, train_genes] ~., as.data.table(X[train_cells,]))
+    residuals_correct <- predict(fit, as.data.table(X)) - Y[,train_genes]
+
+    LL_correct = LL_same(residuals_correct)
+
+    beta = coef(fit)
+
+    for (guide in seq_len(n_guides)) {
+      guide_detected = X_new[, guide]
+      residuals_swapped = sweep(residuals_correct[,,drop=F],2, beta[guide,,drop=F])
+      LL_swapped = LL_same(residuals_swapped)
+      LLR = LL_correct-LL_swapped
+
+
+      p.val <- ((1+cumsum(!guide_detected[order(-LLR)]))/(1+sum(!guide_detected)))[order(order(-LLR))][guide_detected>0]
+      lfdr <- fdrtool::fdrtool(p.val, statistic="pvalue", plot=FALSE,verbose=FALSE)$lfdr
+      X_new[guide_detected,guide] <- 1-lfdr
+    }
+    colnames(X_new) <- sprintf("%s.adj", colnames(X_new))
+    X_new
+  }
+
 
 
   res_SSq = function(X) {
@@ -122,17 +151,20 @@ dt = rbindlist(lapply( seq_len(n_folds), function (fold) {
     res_SSq = c(res_SSq(matrix(rep(1,nrow(guide_matrix),ncol=1))),
                 res_SSq(cbind(capture,batch)),
                 res_SSq(cbind(guide_matrix,capture,batch)),
+                res_SSq(cbind(guide_matrix[sample(nrow(guide_matrix)),],capture,batch)),
                 res_SSq(cbind(capture,batch, adj_guide_matrix(guide_matrix, cbind(capture,batch)))),
+                res_SSq(cbind(capture,batch, adj_guide_matrix_fdr(guide_matrix, cbind(capture,batch)))),
+                res_SSq(cbind(capture,batch, adj_guide_matrix_fdr(guide_matrix[sample(nrow(guide_matrix)),], cbind(capture,batch)))),
                 res_SSq(cbind(capture,batch, adj_guide_matrix(guide_matrix[sample(nrow(guide_matrix)),], cbind(capture,batch))))
                 ),
-    method = rep(c("intercept_only","+capture+batch","+guides+capture+batch","+capture+batch\n+adj.guides","+capture+batch\n+adj.guides (resampled)"), each=length(test_cells)),
+    method = rep(c("intercept_only","+capture+batch","+guides+capture+batch","+guides+capture+batch\n(resampled)","+capture+batch\n+adj.guides","+capture+batch\n+adj.guides.fdr","+capture+batch\n+adj.guides.fdr (resampled)","+capture+batch\n+adj.guides (resampled)"), each=length(test_cells)),
     cell = test_cells
   )
   pb$tick()
   dt
 }))
 
-dt2=dt[method!="intercept_only"][dt[method=="intercept_only"], res_SSq_1 := i.res_SSq, on=.(cell)]
+dt2=dt[!(method %in% c("intercept_only","+capture+batch"))][dt[method=="+capture+batch"], res_SSq_1 := i.res_SSq, on=.(cell)]
 
 R2 = function(dt,idx) 1-dt[idx,sum(res_SSq)]/sum(dt[idx,sum(res_SSq_1)])
 R2_dt = dt2[,  {boot.out= boot(.SD, R2, 1000); as.list(c(R2(.SD),boot.ci(boot.out,type="basic")$basic[4:5]))},by=method]
@@ -148,10 +180,24 @@ cross_val_info =
   }
 
 figure(
-  paste0("Variance explained through different adjustments - ", cross_val_info,"\nwith resampling"),
-  ggplot(R2_dt, aes(x=factor(method),y=`R^2`)) + geom_bar(stat="identity") +
+  paste0("Guide vs knockout adjustments"),
+  ggplot(R2_dt, aes(x=factor(method,
+                             levels = rev(c("+guides+capture+batch",
+                                            "+capture+batch\n+adj.guides",
+                                            "+capture+batch\n+adj.guides.fdr",
+                                            "+guides+capture+batch\n(resampled)",
+                                            "+capture+batch\n+adj.guides (resampled)",
+                                            "+capture+batch\n+adj.guides.fdr (resampled)")),
+                             labels= rev(c("+sgRNAs detected",
+                                           "+adj. sgRNAs",
+                                           "+fdr.adj. sgRNAs",
+                                           "+sgRNAs detected\n(resampled)",
+                                           "+adj. sgRNAs\n(resampled)",
+                                           "+fdr.adj. sgRNAs\n(resampled)"))),y=`R^2`)) +
+    geom_bar(stat="identity") +
     geom_errorbar(aes(ymin=lower, ymax=upper),width=2/3) +
-    coord_flip() + ylab(expression(R[CV]^2)) + xlab("")+
-    scale_x_discrete(limits=rev(R2_dt[, unique(method)]))
+    coord_flip() + ylab(expression(paste("rel. ",R[CV]^2))) + xlab(""),
+  width=5,
+  height=3
 )
 
