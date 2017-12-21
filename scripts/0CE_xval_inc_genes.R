@@ -191,9 +191,9 @@ figure(
                              labels= rev(c("+sgRNAs detected",
                                            "+adj. sgRNAs",
                                            "+fdr.adj. sgRNAs",
-                                           "+sgRNAs detected\n(resampled)",
-                                           "+adj. sgRNAs\n(resampled)",
-                                           "+fdr.adj. sgRNAs\n(resampled)"))),y=`R^2`)) +
+                                           "+sgRNAs detected\n(permuted)",
+                                           "+adj. sgRNAs\n(permuted)",
+                                           "+fdr.adj. sgRNAs\n(permuted)"))),y=`R^2`)) +
     geom_bar(stat="identity") +
     geom_errorbar(aes(ymin=lower, ymax=upper),width=2/3) +
     coord_flip() + ylab(expression(paste("rel. ",R[CV]^2))) + xlab(""),
