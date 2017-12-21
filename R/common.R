@@ -301,3 +301,7 @@ log10_minor_break = function (...){
     return(10^(breaks))
   }
 }
+
+#' @export
+binom_mean_ci_jeffreys <-  function(x, ...) as.data.table(binom::binom.bayes(sum(x),length(x), ...))[,.(ymin=lower,ymax=upper,y=mean)]
+
