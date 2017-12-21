@@ -266,19 +266,43 @@ dtfdr <-  dt[(guide_detected), {res <- fdrtool::fdrtool(p.val, statistic="pvalue
   data.table(lfdr=res$lfdr, eta0=res$param[1,"eta0"], eta0.SE=res$param[1,"eta0.SE"], LLR=LLR)},by=c("guide","guide_target","guide_variant")]
 res2 <- unique(dtfdr, by="guide")
 
+res2[,c("guide2"):=tstrsplit(guide,"p_sg",fixed=TRUE)[2]]
+dt[,c("guide2"):=tstrsplit(guide,"p_sg",fixed=TRUE)[2]]
 figure(
   "LLR distribution of efficient guides fdr",
-  ggplot(dt[set=="test"][guide %in% res2[eta0<0.70,guide]], aes(x=scaling_factor*LLR,color= guide_detected))+geom_density(aes(y=..scaled..),fill=NA)+
-    facet_wrap("guide",scales ="free")+
+  ggplot(dt[set=="test"][guide %in% res2[eta0<0.70,guide]], aes(x=scaling_factor*LLR,color= guide_detected))+geom_density(aes(y=..density..),fill=NA)+
+    facet_wrap("guide2",scales ="free")+
     geom_text(data=res2[eta0<0.70,],aes(
       label=sprintf("%s%%",signif(1-eta0,3)*100),#latex2exp::TeX(sprintf("%s\\%%",signif(1-estimate,3)*100), output="character"), #P(\\mathit{K_{r}}|\\mathit{D_{r}}=1) \n \\geq{}
       x=Inf,y=Inf), vjust=1.01, hjust=1.01, color="black", parse=FALSE)+
     xlab(latex2exp::TeX("log  \\frac{P(\\mathit{Y_{c}}|\\mathit{D_{cr}}=1)}{P(\\mathit{Y_{c}}|\\mathit{D_{cr}}=0)}"))+
     ylab("scaled densitiy") +
     scale_color_manual(name="", values=cbbPalette[2:3], breaks=c(TRUE, FALSE), labels=c("sgRNA detected", "not detected"))+
-    scale_y_continuous(limits=c(0, 1), expand = expand_scale(c(0, 0),c(0, 0.02))) +# expand_scale(c(0, 0),c(0, 0.2))) +
+    scale_y_continuous(expand = expand_scale(c(0, 0),c(0, 0.02))) +# expand_scale(c(0, 0),c(0, 0.2))) +
     theme(legend.position=c(1,-0.25), legend.justification=c(1,0)),
   width=9, height=5
+)
+dt_gabpa <- dt[set=="test",][guide == "p_sgGABPA_9"]
+res2[guide == "p_sgGABPA_9",eta0]
+figure(
+  "LLR distribution of efficient guides fdr sgGABPA_9",
+  ggplot(dt_gabpa, aes(x=scaling_factor*LLR,color= guide_detected))+
+    geom_density(data=dt_gabpa[(guide_detected)],aes(y=..density..),fill=cbbPalette[3],color=cbbPalette[3])+
+    geom_density(data=dt_gabpa[!(guide_detected)],aes(y=..density..*  0.6028156),fill=cbbPalette[2],color=cbbPalette[3],size=0.1)+
+    #geom_density(data=dt_gabpa[(guide_detected)],aes(y=..density..),fill=NA,size=2)+
+    facet_wrap("guide2",scales ="free")+
+    geom_text(data=res2[guide == "p_sgGABPA_9"],aes(
+      label=sprintf("%s%%",signif(1-eta0,3)*100),#latex2exp::TeX(sprintf("%s\\%%",signif(1-estimate,3)*100), output="character"), #P(\\mathit{K_{r}}|\\mathit{D_{r}}=1) \n \\geq{}
+      x=Inf,y=Inf), vjust=1.01, hjust=1.01, color="black", parse=FALSE)+
+    xlab(latex2exp::TeX("log  \\frac{P(\\mathit{Y_{c}}|\\mathit{D_{cr}}=1)}{P(\\mathit{Y_{c}}|\\mathit{D_{cr}}=0)}"))+
+    ylab("scaled densitiy") +
+    geom_line(data=data.table(scaling_factor=1,LLR=1,guide_detected=TRUE,y=0),aes(y=y))+
+    geom_polygon(data=data.table(scaling_factor=1,LLR=1,guide_detected=c(TRUE,FALSE),y=0),aes(y=y,fill=guide_detected,color=NA))+
+    scale_color_manual(name=NULL, values=cbbPalette[3], breaks=c(TRUE), labels=c("sgRNA detected"),drop=FALSE)+
+    scale_fill_manual(name=NULL, values=cbbPalette[2:3], breaks=c(TRUE, FALSE), labels=c("knockout successful", "no knockout"),drop=FALSE)+
+    scale_y_continuous(expand = expand_scale(c(0, 0),c(0, 0.02))) +# expand_scale(c(0, 0),c(0, 0.2))) +
+    theme(legend.position=c(1,1), legend.justification=c(1,1))
+  , width=4.5, height=3
 )
 
 figure1("fdrtool p_sgYY1_10",
