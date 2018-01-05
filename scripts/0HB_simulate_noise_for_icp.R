@@ -106,15 +106,17 @@ ggplot(res.dt[hypotheses == "true null"], aes(x = mean_R2_poisson, y = as.numeri
 #  -------------
 
 # label switichig ---------------------------------------------------------------------------------
+library(pertInv)
 set.seed(2)
-N=1000
+N=5000
 pb =  progress::progress_bar$new(format = " [:bar] :percent eta: :eta",
                                  total =  N,
                                  clear = FALSE, width= 60)
 res.dt <- rbindlist( replicate(N,{
   # inner loop --------------
-  n <- 25
+  N <- 25
 
+  f <- sample(c(0,0.1,0.2,0.3,0.4,0.5), 1)
   dt <- local({
     dts <- list()
 
@@ -128,11 +130,12 @@ res.dt <- rbindlist( replicate(N,{
       X_1 =  quote(X_1 <- (3*X_2 + rnorm(n)) / sqrt(10)),
       add = quote(dts[[e]] <- data.table(e, Y, X_1, X_2, X_3, X_4, X_5))
     )
-
+    n <- N + ceiling(f*N)*3
     e <- 1L
     model <- copy(null_model)
     for (inst in model) eval(inst)
 
+    n <- N - ceiling(f*N)
     e=2L
     model <- copy(null_model)
     model[["X_2"]] <- quote(X_2 <- rnorm(n) + 1)
@@ -154,9 +157,9 @@ res.dt <- rbindlist( replicate(N,{
 
   dt[,i:=.I]
 
-  f <- sample(c(0,0.1,0.2,0.3,0.4,0.5), 1)
-  sel <- runif(nrow(dt))<f
-  dt[sel, e:=1L]#sample(levels(e),sum(sel),replace=TRUE)
+  dt[seq_len(ceiling(f*N)), e:=2L]
+  dt[seq_len(ceiling(f*N))+ceiling(f*N), e:=3L]
+  dt[seq_len(ceiling(f*N))+ceiling(f*N)*2, e:=4L]
   XX0 <- dt[, cbind(X_1, X_2, X_3, X_4, X_5)]
   XX <-  XX0
 
@@ -166,7 +169,7 @@ res.dt <- rbindlist( replicate(N,{
   YY <-  YY0
   ExpInd <- dt[, as.factor(e)]
   res <- tryCatch({
-    res <- InvariantCausalPrediction::ICP(XX, YY, ExpInd, selection="all", showAcceptedSets = F, showCompletion = F, test="ranks" )
+    res <- InvariantCausalPrediction::ICP(XX, YY, ExpInd, selection="all", showAcceptedSets = F, showCompletion = F, test="ranks")
     data.table(id=sample(.Machine$integer.max,1),  f=f, p.val=res$pvalues, node=c("X_1", "X_2", "X_3", "X_4", "X_5"))
   }, error = function(e) return(data.table(id=integer(0),  f=numeric(0), R2_poisson=numeric(0), p.val=numeric(0), node=character(0))) )
   pb$tick()
