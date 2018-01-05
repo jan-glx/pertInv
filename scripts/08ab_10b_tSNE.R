@@ -14,7 +14,7 @@ load(file = file.path(data_folder, "count_matrix.RData"))
 load(file = file.path(data_folder, "guide_matrix.RData"))
 covariates.dt <- fread(file.path(data_folder, "covariates.dt.csv"))
 
-count_matrix <- count_matrix#[1:1000,1:100]#count_matrix#count_matrix[1:1000,1:100]
+count_matrix <- count_matrix
 n_genes <- ncol(count_matrix)
 n_cells <- nrow(count_matrix)
 p <- n_genes
@@ -23,7 +23,6 @@ n <- n_cells
 dt = data.table(melt(count_matrix))
 setnames(dt, c("cell","gene","count"))
 
-#ggplot(dt[,.(CDR = mean(count>0), total_counts = sum(count)), by=.(cell)], aes(x=CDR, y=total_counts)) + geom_point()
 
 wMUC <- count_matrix %*% (1/matrixStats::colVars(count_matrix))
 wMUC <- mean(wMUC)/wMUC

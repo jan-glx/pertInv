@@ -91,20 +91,6 @@ figure("ICP-Visualization: pairs plot--merged",
 )
 
 
-#ggplot(dt2, aes(color=Y,x=value,y=0)) +
-#  facet_grid(variable~environment)+geom_point()
-
-
-#dt3 <- dt2[dt2, .(S=paste0("S={", variable, ",", i.variable, "}"),
-#                  S1_name = variable, S2_name = i.variable,
-#                  S1 = value, S2 = i.value,
-#                  Y = Y, environment, e),
-#           on = .(e, i), allow.cartesian = TRUE]
-
-
-#ggplot(dt3[as.character(S1_name) < as.character(S2_name)], aes(color=Y, x=S1, y=S2)) +
-#  facet_grid(S~environment) + geom_point()
-#
 dt2[,Y_adj:=residuals(lm(Y~value)), by=.(e,variable)]
 
 dt3 <- dt2[dt2, .(S=i.variable,Y=i.Y,Y_adj=i.Y_adj,variable,value,environment,e),on=.(e,i),allow.cartesian=TRUE]

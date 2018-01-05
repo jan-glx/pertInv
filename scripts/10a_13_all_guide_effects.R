@@ -65,9 +65,6 @@ ggplot(dt[], aes(gene, guide)) +
 dt[guide=="p_sgGABPA_1",hist(p.value_adj)]
 dt[guide=="p_sgGABPA_1",hist(p.value_adj)]
 
-
-#BiocInstaller::biocLite("IHW")
-
 res <-  dt[, .(
   "BH with tec. cov." = sum(p.adjust(p.value_adj,method="BH")<0.05),
   "BH unadjusted" = sum(p.adjust(p.value_raw,method="BH")<0.05),
@@ -85,7 +82,7 @@ figure("increasing power",
 
 dt[,p.adjj := IHW::adj_pvalues(IHW::ihw(p.value_adj, factor(guide), alpha=0.05))]
 filtered <- unique(dt[IHW::adj_pvalues(IHW::ihw(p.value_adj, powerinfo, alpha=0.05))<0.05],by=c("gene","guide"))
-filtered <-dt[gene %in% filtered[,gene]]#[guide %in% filtered[,unique(guide)]]
+filtered <-dt[gene %in% filtered[,gene]]
 ggplot(filtered, aes(gene, guide)) +
   geom_raster(aes(fill = eff_adj/max(abs(eff_adj)),alpha=1-p.adjj)) +
   scale_fill_gradientn(limits=c(-1,1), colors=cool_warm(101))
@@ -143,10 +140,6 @@ dt[is.na(target_gene),target_gene:="unknown"]
 intra_target_tests <- dt[target_gene!="unknown",.(p.value=kruskal.test(value,as.factor(guide))$p.value),by=.(variable,target_gene)]
 intra_target_tests[,p.adj := p.adjust(p.value,method="BH")]
 intra_target_tests[,min(p.adjust(p.value)),by=target_gene][,p.adj:=p.adjust(V1,method="BH")][p.adj<0.1]
-
-#intra_target_tests[,p.adjust(p.adj_ind,method="BH")]
-#intra_target_tests[p.adj<0.5]
-#dt[,1,by=.(target_gene,guide)][,.N,by=target_gene]
 
 
 # significant guide effects on TF level
