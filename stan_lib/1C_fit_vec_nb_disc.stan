@@ -11,6 +11,7 @@ data {
 }
 
 transformed data {
+  #include 1C_prior_params.stan
   int R_2m[n_c,n_r];
   for (c in 1:n_c) {
     for (r in 1:n_r) {
@@ -33,18 +34,18 @@ transformed parameters {
 
 model {
   // hirachical prior parameters
-  target += normal_lpdf(mu_log_p_R_r | log(1.0 / n_r), log(1.3)); // prior of mean of log abundance of sgRNAs
-  target += lognormal_lpdf(sd_log_p_R_r | -1, 1); // prior of sd of log abundance of sgRNAs
-  target += lognormal_lpdf(sd_mu_X | -1, 1);  // prior of sd of mean log expression of genes
-  target += lognormal_lpdf(sd_E | -1, 1); // prior of sd of log size factors
-  target += normal_lpdf(mu_log_sd_X_g | -1, 1); // prior of mean log variance of log expression of genes
-  target += lognormal_lpdf(sd_log_sd_X_g | -1, 1);  // prior of sd of log variance of log expression of genes
-  target += lognormal_lpdf(sd_gRNA_effects | -3, 1); // prior of sd of sgRNA effects
+  target += normal_lpdf(mu_log_p_R_r | mu_mu_log_p_R, sd_mu_log_p_R); // prior of mean of log abundance of sgRNAs
+  target += lognormal_lpdf(sd_log_p_R_r | mu_log_sd_log_p_R_r, sd_log_sd_log_p_R_r); // prior of sd of log abundance of sgRNAs
+  target += lognormal_lpdf(sd_mu_X | mu_log_sd_mu_X, sd_log_sd_mu_X);  // prior of sd of mean log expression of genes
+  target += lognormal_lpdf(sd_E | mu_log_sd_E, sd_log_sd_E); // prior of sd of log size factors
+  target += normal_lpdf(mu_log_sd_X_g | mu_mu_log_sd_X_g, sd_mu_log_sd_X_g); // prior of mean log variance of log expression of genes
+  target += lognormal_lpdf(sd_log_sd_X_g | mu_log_sd_log_sd_X_g, sd_log_sd_log_sd_X_g);  // prior of sd of log variance of log expression of genes
+  target += lognormal_lpdf(sd_gRNA_effects | mu_log_sd_gRNA_effects, sd_log_sd_gRNA_effects); // prior of sd of sgRNA effects
 
   // non-hirachical prior parameters
-  target += normal_lpdf(mu_X | 0, 10);
-  target += normal_lpdf(logit_p_D_given_R[1] | 3, 1) ;
-  target += normal_lpdf(logit_p_D_given_R[2] | -3, 1) ;
+  target += normal_lpdf(mu_X | mu_muX, sd_muX);
+  target += normal_lpdf(logit_p_D_given_R[1] | mu_logit_p_D_given_R1, sd_logit_p_D_given_R1) ;
+  target += normal_lpdf(logit_p_D_given_R[2] | mu_logit_p_D_given_R2, sd_logit_p_D_given_R2) ;
 
   // continous hirachical parameters
   target += normal_lpdf(to_vector(gRNA_effects) | 0, sd_gRNA_effects); // distribution of effects of gRNAs on genes

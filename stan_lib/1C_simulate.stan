@@ -8,6 +8,7 @@ data {
 }
 
 transformed data {
+  #include 1C_prior_params.stan
 }
 
 parameters {
@@ -26,20 +27,19 @@ generated quantities{
   row_vector[n_r] logit_p_R_r; // gRNA_prior_probs
   vector<lower=0,upper=1>[2] p_D_given_R;
 
-
   // hirachical prior parameters
-  mu_log_p_R_r = normal_rng(log(1.0 / n_r), log(1.3)); // prior of mean of log abundance of sgRNAs
-  sd_log_p_R_r = lognormal_rng(-1, 0.1); // prior of sd of log abundance of sgRNAs
-  sd_mu_X = lognormal_rng(-1, 0.1);  // prior of sd of mean log expression of genes
-  sd_E = lognormal_rng(-1, 0.1); // prior of sd of log size factors
-  mu_log_sd_X_g = normal_rng(-2, 0.1); // prior of mean log variance of log expression of genes
-  sd_log_sd_X_g = lognormal_rng(-2, 0.1);  // prior of sd of log variance of log expression of genes
-  sd_gRNA_effects = lognormal_rng(-0, 0.1); // prior of sd of sgRNA effects
+  mu_log_p_R_r = normal_rng(mu_mu_log_p_R, sd_mu_log_p_R); // prior of mean of log abundance of sgRNAs
+  sd_log_p_R_r = lognormal_rng(mu_log_sd_log_p_R_r, sd_log_sd_log_p_R_r); // prior of sd of log abundance of sgRNAs
+  sd_mu_X = lognormal_rng(mu_log_sd_mu_X, sd_log_sd_mu_X);  // prior of sd of mean log expression of genes
+  sd_E = lognormal_rng(mu_log_sd_E, sd_log_sd_E); // prior of sd of log size factors
+  mu_log_sd_X_g = normal_rng(mu_mu_log_sd_X_g, sd_mu_log_sd_X_g); // prior of mean log variance of log expression of genes
+  sd_log_sd_X_g = lognormal_rng(mu_log_sd_log_sd_X_g, sd_log_sd_log_sd_X_g);  // prior of sd of log variance of log expression of genes
+  sd_gRNA_effects = lognormal_rng(mu_log_sd_gRNA_effects, sd_log_sd_gRNA_effects); // prior of sd of sgRNA effects
 
   // non-hirachical prior parameters
-  mu_X = normal_rng(2, 1);
-  logit_p_D_given_R[1] = normal_rng(3, 1);
-  logit_p_D_given_R[2] = normal_rng(-3, 1); // not present, detected  +  present,no knockout, detected
+  mu_X = normal_rng(mu_muX, sd_muX);
+  logit_p_D_given_R[1] = normal_rng(mu_logit_p_D_given_R1, sd_logit_p_D_given_R1);
+  logit_p_D_given_R[2] = normal_rng(mu_logit_p_D_given_R2, sd_logit_p_D_given_R2); // not present, detected  +  present,no knockout, detected
   p_D_given_R = inv_logit(logit_p_D_given_R);
 
   // continous hirachical parameters

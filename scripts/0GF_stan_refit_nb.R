@@ -24,9 +24,17 @@ covariates.dt <- fread(file.path(data_folder, "covariates.dt.csv"))
 
 n_g <- 100
 n_c <- 100
-count_matrix <- count_matrix[1:n_c,1:n_g]
-guide_matrix <- guide_matrix[1:n_c,]
-batch_matrix <- batch_matrix[1:n_c,]
+
+seletec_guides <- colnames(guide_matrix) %in% c("p_sgGABPA_9","p_INTERGENIC393453","p_sgYY1_3")
+selected_cells <- which(rowSums(guide_matrix[,seletec_guides])>0)
+n_c <- min(length(selected_cells), n_c)
+selected_cells <- selected_cells[seq_len(n_c)]
+
+batch_matrix <- batch_matrix[selected_cells,,drop=F]
+batch_matrix <- batch_matrix[,colSums(batch_matrix)>0,drop=F]>0
+guide_matrix <- guide_matrix[selected_cells,seletec_guides,drop=F]
+
+count_matrix <- count_matrix[selected_cells,][,1:n_g]
 
 n_g <- ncol(count_matrix)
 n_c <- nrow(count_matrix)
@@ -45,8 +53,31 @@ ee <- list()
 # ---------------------------
 ii <- 1
 mm[[ii]] <- stan_model_builder("stan_lib/1C_fit_vec_nb_disc.stan")
+fit_vb[[ii]] <- vb(mm[[ii]], data = dat, adapt_engaged=FALSE, eta=0.1, tol_rel_obj=0.001)
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
 ee[[ii]] <- extract(fit_mc[[ii]])
+
+
+
+
+
+
+ii <- 2
+fit_vb[[ii]] <- fit_vb[[1]]
+
+inits <- index_samples(extract(fit_vb[[ii]]) , sample(dim((extract(fit_vb[[ii]]))[[1]])[1],4))
+inits <- lapply(inits, function(x) {x$K <-  NULL;x})
+
+mm[[ii]] <- mm[[1]]
+fit_vb[[ii]] <- vb(mm[[1]], data = dat, adapt_engaged=FALSE, init=inits[[1]], eta=0.01, tol_rel_obj=0.001)
+fit_vb[[ii]] <- vb(mm[[1]], data = dat, adapt_engaged=FALSE, init=inits[[1]], eta=0.01, tol_rel_obj=0.001, algorithm="fullrank")
+
+fit_mc[[ii]] <- sampling(mm[[ii]], data = dat, init=inits)
+
+ee[[ii]] <- extract(fit_vb[[ii]])
+
+
+
 
 sstan <- as.shinystan(fit_mc[[ii]])
 sstan = as.shinystan(fit_mc[[ii]], pars=fit_mc[[ii]]@sim$pars_oi[!(fit_mc[[ii]]@sim$pars_oi %in% c("gRNA_effects", "K"))])
@@ -60,7 +91,7 @@ pairs(fit_mc[[ii]],pars=scalar_pars[-(1:ceiling(length(scalar_pars)/2))])
 pairs(fit_mc[[ii]],pars=c("E_c[1]","sd_E","lp__"))
 pairs(fit_mc[[ii]],pars=c("sd_mu_X","mu_X_g[1]","mu_X_g[2]","mu_X","lp__"))
 
-dat <- lapply(e[[ii]], mean)
+dat <- lapply(ee[[ii]], mean)
 lapply(ee[[ii]], mean)
 lapply(ee[[ii]], sd)
 lapply(ee[[ii]], dim)

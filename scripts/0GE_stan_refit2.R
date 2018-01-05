@@ -7,15 +7,39 @@ library(shinystan)
 rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
-set.seed(1)
 
+# helper functions --
+lp__vb <- function(fit_vb, e_vb=extract(fit_vb)) {
+  sapply(seq_len(dim(e_vb[[1]])[1]), function(i) {
+    pars <- index_sample(e_vb, i)
+    log_prob(fit_vb, unconstrain_pars(fit_vb, pars))
+  })
+}
+lp_R_term <- function(fit) {
+  e <- extract(fit, pars="lp_R_terms")[[1]]
+  e <- aperm(e, c(1,3,2))
+  #dim(e) <- c(dim(e)[1], prod(dim(e)[2:3]))
+  e
+}
+summarize_sample <- function(xx) {
+  xx <- xx[!names(xx)%in% c("D","lp__","R","Y")]
+  xx <- lapply(xx,function(x){
+    if(!is.null(dim(x))&&length(dim(x))>1) {
+      dim(x) <- c(dim(x)[1],prod(dim(x)[-1]))
+    }
+    x
+  })
+  melt(as.data.table(xx),id.vars=integer(0))[,.(mean=mean(value),median=median(value),lower=quantile(value,0.025),upper=quantile(value,0.975)),by=variable]
+}
 
+# clear/init results lists
 mm <- list()
 fit_mc <- list()
 fit_vb <- list()
 ee <- list()
 # ---------------------------
-
+set.seed(1)
+with_mc <-  TRUE
 
 dat <- list(n_c = 64, n_g = 16, n_r = 4);
 
@@ -29,13 +53,13 @@ R_true <- dat$R
 
 ii <- 2
 mm[[ii]] <-  stan_model_builder("stan_lib/1C_fit_vec_nb_disc.stan")
-#fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
+if (with_mc) fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
 fit_vb[[ii]] <- vb(mm[[ii]], data = dat)
 
 
 
 ee[[ii]] <- extract(fit_vb[[ii]])
-#ee[[ii]] <- extract(fit_mc[[ii]])
+if (with_mc) ee[[ii]] <- extract(fit_mc[[ii]])
 datt <- lapply(index_sample(ee[[ii]], i=1),function(x){
   x <- as.array(x)
   if(length(x)>1) {
@@ -43,16 +67,7 @@ datt <- lapply(index_sample(ee[[ii]], i=1),function(x){
   }
   x})
 
-summarize_sample <- function(xx) {
-  xx <- xx[!names(xx)%in% c("D","lp__","R","Y")]
-  xx <- lapply(xx,function(x){
-    if(!is.null(dim(x))&&length(dim(x))>1) {
-      dim(x) <- c(dim(x)[1],prod(dim(x)[-1]))
-    }
-    x
-    })
-  melt(as.data.table(xx),id.vars=integer(0))[,.(mean=mean(value),median=median(value),lower=quantile(value,0.025),upper=quantile(value,0.975)),by=variable]
-}
+
 
 
 
@@ -60,7 +75,7 @@ summarize_sample <- function(xx) {
 dt <- rbind(
   summarize_sample(extract(fit_mc[[1]]))[,method:="prior"],
   summarize_sample(extract(fit_vb[[ii]]))[,method:="VB"],
-#  summarize_sample(extract(fit_mc[[ii]]))[,method:="MC"],
+  if (with_mc)   summarize_sample(extract(fit_mc[[ii]]))[,method:="MC"] else data.table(),
   summarize_sample(datt)[,method:="ground truth"]
   )
 
@@ -81,10 +96,9 @@ ggplot(dt[number<11], aes(x=variable,y=mean,ymin=lower,ymax=upper,color=method))
         legend.title=element_blank())+
   ylab("value")+coord_flip(),
 width=9,height=5)
-# ----
 
-dt.single <- dt[!(variable_class %in% dt[number==3, unique(variable_class)])]
-
+# plot 1D paramters ---
+dt.single <- dt[!(variable_class %in% dt[number==3, unique(variable_class)])][!(variable %in% c("logit_p_D_given_R.V1", "logit_p_D_given_R.V2"))]
 
 figure("1D parameter recovery VB/MC",
 ggplot(dt.single, aes(x=variable,y=mean,ymin=lower,ymax=upper,color=method))+
@@ -93,22 +107,26 @@ ggplot(dt.single, aes(x=variable,y=mean,ymin=lower,ymax=upper,color=method))+
   geom_crossbar(data=dt.single[method %in% "ground truth"],aes(y=mean,color=method))+
   geom_errorbar(data=dt.single[method %in% c("VB","MC")],width=0,position=position_dodge(0.3))+
   geom_point(data=dt.single[method %in% c("VB","MC")],position=position_dodge(0.3))+
-  facet_wrap("variable",scales="free", nrow=2)+
+  facet_wrap("variable",scales="free", nrow=2,strip.position="right")+
+ # coord_flip()+
   theme(axis.title.x=element_blank(),
+        strip.text.y = element_text(angle = 90,margin = margin(0,0.1,0,0.1, "cm")),
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
-        legend.title=element_blank())+
+        legend.title=element_blank(),
+        legend.position="none",
+        )+
   ylab("value"),
-width=12,height=9)
+width=9,height=5)
 
 
 
-
-dt.multi <- dt[(variable_class %in% dt[number==3, unique(variable_class)])][number<11]
+# plot nD paramters ---
+dt.multi <- dt[(variable_class %in% dt[number==3, unique(variable_class)])][number<11][!(variable_class %in% c("logit_p_R_r", "lp_R_terms"))]
+varsorted <- setorder(unique(dt.multi[method=="ground truth"], key="variable"),"mean")[,variable]
 dt.multi[,variable_factor:=factor(variable,levels=varsorted),]
 dt.multi[dt.multi[method=="ground truth",.(variable_coded=rank(mean),variable),by=variable_class],variable_coded:=variable_coded,on="variable"]
-#varsorted <- setorder(unique(dt.multi[method=="ground truth"], key="variable"),"mean")[,variable]
-#dt.multi[,variable_factor:=factor(variable,levels=varsorted)]
+
 dt.prior <- dt.multi[method=="prior"][,lapply(.SD,mean),by=.(method,variable_class), .SDcols=c("mean","median","lower","upper")]
 dt.prior[,variable_coded:=1L]
 
@@ -124,14 +142,17 @@ figure("n-D parameter recovery VB/MC",
          facet_wrap("variable_class",scales="free", nrow=2)+
         scale_x_discrete(limits=varsorted)+
          theme(axis.title.x=element_blank(),
+               strip.text.x = element_text(margin = margin(0.1,0,0.1,0, "cm")),
                axis.text.x=element_blank(),
                axis.ticks.x=element_blank(),
-               legend.title=element_blank())+
+               legend.title=element_blank(),
+               legend.justification=c(1,0),
+               legend.position=c(0.9,0.1))+
          ylab("value"),
-       width=12,height=9)
+       width=9,height=5)
 
 
-# initialization from prior
+# initialization from prior ---------------------------------------------------
 inits <- index_samples(ee[[1]], sample(dim((ee[[1]])[[1]])[1]-1,4)+1)
 
 ii <- 3
@@ -140,20 +161,6 @@ fit_mc[[ii]] <- sampling(mm[[ii]], data = dat, init=inits)
 fit_vb[[ii]] <- vb(mm[[ii]], data = dat, output_samples=100, tol_rel_obj=0.001)
 ee[[ii]] <- extract(fit_vb[[ii]])
 
-
-# helper functions --------
-lp__vb <- function(fit_vb, e_vb=extract(fit_vb)) {
-  sapply(seq_len(dim(e_vb[[1]])[1]), function(i) {
-    pars <- index_sample(e_vb, i)
-    log_prob(fit_vb, unconstrain_pars(fit_vb, pars))
-    })
-}
-lp_R_term <- function(fit) {
-  e <- extract(fit, pars="lp_R_terms")[[1]]
-  e <- aperm(e, c(1,3,2))
-  #dim(e) <- c(dim(e)[1], prod(dim(e)[2:3]))
-  e
-}
 
 # initialize knockout matrix with guide matrix
 ii <- 4
