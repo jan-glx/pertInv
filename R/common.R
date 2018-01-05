@@ -10,7 +10,7 @@ NULL
 figure <- function(title, p, sub_title = if(exists("data_set")) data_set else character(0), ...){
   RESULT_FOLDER <- "results"
   file_name <- paste0(make.names(title), "-", make.names(sub_title))
-  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".pdf")), p, ..., device=cairo_pdf)
+  cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".pdf")), p, ...)#, device=cairo_pdf)
   cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,".png")), p, ..., type = "cairo")
   p <- p + ggplot2::ggtitle(title, sub_title)
   cowplot::ggsave(file.path(RESULT_FOLDER, paste0(file_name,"_titled.png")), p, ..., type = "cairo")

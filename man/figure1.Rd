@@ -4,7 +4,8 @@
 \alias{figure1}
 \title{Saves last figure as png and as pdf}
 \usage{
-figure1(title_, p, sub_title = FALSE, title = !sub_title)
+figure1(title_, p, sub_title = FALSE, title = !sub_title, width = 4,
+  height = 4, units = "in", res = 600, ...)
 }
 \arguments{
 \item{title_}{filename for save optional title for the plot}
