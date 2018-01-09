@@ -8,5 +8,6 @@ Maintainer: Jan Gleixner <jan.gleixner@gmail.com>
 Description: An R package to reproduce the analysis and figures presented in my master thesis on advancing causal inference from single cell perturbation data
 Imports: data.table,scran,Matrix,stringr,cowplot,feather,rstan,latex2exp
 Depends: data.table,cowplot,methods
-License: MIT + file LICENSE
+License: file LICENSE
+License_is_FOSS: yes
 RoxygenNote: 6.0.1
