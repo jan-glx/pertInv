@@ -1,12 +1,7 @@
-data_raw/*.gz
-data_raw/*.csv
 .Rproj.user
-data_raw/*.fasta
-data_raw/*.bt2
-scripts/nndeconv_out/*
-*/.ipynb_checkpoints/*
-scripts/_scratch.R
 stan_lib/*.rds
-data_raw/*.RData
-*.csv
+inst/scripts/_scratch.R
+data_raw/*
 data_processed/*
+results/*
+

@@ -286,7 +286,7 @@ rownames(batch_matrix) <- rownames(count_matrix)
 
 # export --------------
 data_folder <- paste0('data_processed/', data_set)
-dir.create(data_folder, showWarnings = FALSE)
+dir.create(data_folder, recursive = TRUE, showWarnings = FALSE)
 
 fwrite(covariates.dt, file.path(data_folder, "covariates.dt.csv"))
 

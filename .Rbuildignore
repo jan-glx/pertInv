@@ -1,4 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^data_raw.*$
+^data_processed.*$
+^results.*$
 ^scripts.*$
