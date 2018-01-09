@@ -1,11 +1,3 @@
-#' pertInv
-#'
-#' @name pertInv
-#' @docType package
-#' @import ggplot2
-#' @import data.table
-NULL
-
 #' @export
 figure <- function(title, p, sub_title = if(exists("data_set")) data_set else character(0), ...){
   RESULT_FOLDER <- "results"

@@ -1,4 +1,4 @@
-## pertINV - An R package to reproduce the analysis and figures presented in my master thesis
+## pertInv - An R package to reproduce the analysis and figures presented in my master thesis
 
 ### Usage
 ```
