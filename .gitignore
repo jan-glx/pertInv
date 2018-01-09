@@ -1,6 +1,6 @@
 .Rproj.user
-stan_lib/*.rds
 inst/scripts/_scratch.R
+inst/stan_lib/*.rds
 data_raw/*
 data_processed/*
 results/*

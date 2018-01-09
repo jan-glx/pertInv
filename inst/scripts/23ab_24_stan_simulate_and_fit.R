@@ -44,7 +44,7 @@ with_mc <-  TRUE
 dat <- list(n_c = 64, n_g = 16, n_r = 4);
 
 ii <- 1
-mm[[ii]] <-  stan_model_builder("stan_lib/1C_simulate.stan")
+mm[[ii]] <-  stan_model_builder(system.file("stan_files","1C_simulate.stan"))
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat, chains=1, iter = 1000, warmup=0, algorithm="Fixed_param")
 ee[[ii]] <- extract(fit_mc[[ii]])
 
@@ -52,7 +52,7 @@ dat  <-  c(dat, index_sample(ee[[ii]], i=1))
 R_true <- dat$R
 
 ii <- 2
-mm[[ii]] <-  stan_model_builder("stan_lib/1C_fit_vec_nb_disc.stan")
+mm[[ii]] <-  stan_model_builder(system.file("stan_files","1C_fit_vec_nb_disc.stan"))
 if (with_mc) fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
 fit_vb[[ii]] <- vb(mm[[ii]], data = dat)
 
@@ -156,7 +156,7 @@ figure("n-D parameter recovery VB/MC",
 inits <- index_samples(ee[[1]], sample(dim((ee[[1]])[[1]])[1]-1,4)+1)
 
 ii <- 3
-mm[[ii]] <-  stan_model_builder("stan_lib/1C_fit_vec_nb_disc.stan")
+mm[[ii]] <-  stan_model_builder(system.file("stan_files","1C_fit_vec_nb_disc.stan"))
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat, init=inits)
 fit_vb[[ii]] <- vb(mm[[ii]], data = dat, output_samples=100, tol_rel_obj=0.001)
 ee[[ii]] <- extract(fit_vb[[ii]])
@@ -164,7 +164,7 @@ ee[[ii]] <- extract(fit_vb[[ii]])
 
 # initialize knockout matrix with guide matrix
 ii <- 4
-mm[[ii]] <-  stan_model_builder("stan_lib/1C_fit_vec_nb_disc.stan")
+mm[[ii]] <-  stan_model_builder(system.file("stan_files","1C_fit_vec_nb_disc.stan"))
 
 # ----------------------------------
 dt <- data.table()
@@ -314,7 +314,7 @@ lapply(fit_mc, function(fit_mc) rowMeans(sapply(fit_mc@sim$samples, function(sam
 
 
 ii <- 3
-mm[[ii]] <-  stan_model_builder("stan_lib/1_fit_vec.stan")
+mm[[ii]] <-  stan_model_builder(system.file("stan_files","1_fit_vec.stan"))
 fit_mc[[ii]] <- sampling(mm[[ii]], data = dat)
 ee[[ii]] <- extract(fit_mc[[ii]])
 
@@ -367,7 +367,7 @@ pairs(fit_mc[[ii]],pars=scalar_pars[-(1:ceiling(length(scalar_pars)/2))])
 pairs(fit_mc[[ii]],pars=c("E_c[1]","sd_E","lp__"))
 pairs(fit_mc[[ii]],pars=c("sd_mu_X","mu_X_g[1]","mu_X_g[2]","mu_X","lp__"))
 
-sstan = as.shinystan(fit_mc[[ii]], pars=fit_mc[[ii]]@sim$pars_oi[!(fit_mc[[ii]]@sim$pars_oi %in% c("X", "X_train", "X_test"))])
+sstan = shinystan::as.shinystan(fit_mc[[ii]], pars=fit_mc[[ii]]@sim$pars_oi[!(fit_mc[[ii]]@sim$pars_oi %in% c("X", "X_train", "X_test"))])
 
 shinystan::launch_shinystan(sstan)
 
@@ -391,7 +391,7 @@ dat$n_test <- length(dat$ii_test)
 # ----------------- snippets
 
 # show merged source
-cat(fit_mc[[ii]]@stanmodel@model_code, file="stan_lib/to_read.stan")
+cat(fit_mc[[ii]]@stanmodel@model_code, file="results/stan_model_code.stan")
 
 # attach data to globalenv for shinystan to find
 list2env(dat,globalenv())
@@ -405,7 +405,7 @@ for (i in names(ee[[ii]])) {
 }
 
 #shinystan subset to not n_c x n_g parameters
-sstan = as.shinystan(fit_mc[[ii]], pars=fit_mc[[ii]]@sim$pars_oi[!(fit_mc[[ii]]@sim$pars_oi %in% c("X", "X_train", "X_test"))])
+sstan = shinystan::as.shinystan(fit_mc[[ii]], pars=fit_mc[[ii]]@sim$pars_oi[!(fit_mc[[ii]]@sim$pars_oi %in% c("X", "X_train", "X_test"))])
 shinystan::launch_shinystan(sstan)
 
 

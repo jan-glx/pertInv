@@ -1,14 +1,14 @@
 functions{
-  #include index_set_diff.stan
-  #include common.stan
+  #include /functions/index_set_diff.stan
+  #include /functions/common.stan
 }
 
 data {
-  #include 1_size.stan
+  #include /chunks/1_size.stan
 }
 
 transformed data {
-  #include 1C_prior_params.stan
+  #include /chunks/1C_prior_params.stan
 }
 
 parameters {
@@ -21,9 +21,9 @@ model {
 }
 
 generated quantities{
-  #include 1C_latent_cont.stan
-  #include 1_latent_disc.stan
-  #include 1_observed.stan
+  #include /chunks/1C_latent_cont.stan
+  #include /chunks/1_latent_disc.stan
+  #include /chunks/1_observed.stan
   row_vector[n_r] logit_p_R_r; // gRNA_prior_probs
   vector<lower=0,upper=1>[2] p_D_given_R;
 

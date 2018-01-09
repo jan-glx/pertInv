@@ -1,17 +1,17 @@
 functions{
-  #include index_set_diff.stan
-  #include common.stan
+  #include /functions/index_set_diff.stan
+  #include /functions/common.stan
 }
 
 data {
-  #include 1_size.stan
-  #include 1_observed.stan
+  #include /chunks/1_size.stan
+  #include /chunks/1_observed.stan
 
-  #include 1_latent_disc.stan
+  #include /chunks/1_latent_disc.stan
 }
 
 transformed data {
-  #include 1C_prior_params.stan
+  #include /chunks/1C_prior_params.stan
   int R_2m[n_c,n_r];
   for (c in 1:n_c) {
     for (r in 1:n_r) {
@@ -21,7 +21,7 @@ transformed data {
 }
 
 parameters {
-  #include 1C_latent_cont.stan
+  #include /chunks/1C_latent_cont.stan
 }
 
 transformed parameters {
