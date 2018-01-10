@@ -10,4 +10,5 @@ Imports: data.table,scran,Matrix,stringr,cowplot,feather,rstan,latex2exp
 Depends: data.table,cowplot,methods
 License: file LICENSE
 License_is_FOSS: yes
+BiocViews: ReproducibleResearch
 RoxygenNote: 6.0.1
