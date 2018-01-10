@@ -1,14 +1,12 @@
 ## pertInv - An R package to reproduce the analysis and figures presented in my master thesis
 
-### Usage
+
+Usage:
 ```
-git clone git@github.com:jan-glx/pertInv.git
-cd pertInv/data_raw 
-bash get_data.sh
-cd ..
-R
-> devtools::install(".", dependencies = TRUE)
-> source("scripts/000_4ab_5ab_9abc_quality_control_preprocessing.R")
+# source("http://bioconductor.org/biocLite.R")
+# install.packages("devtools")
+devtools::install_github("jan-glx/pertInv")
+pertInv::reproduce_all()
 ```
 
-This will download this repository, download the data files, install this package to provide key functions for the scripts and run the quality control/preprocessing script, producing figures 4a, 4b, 5a, 5b, and 9 a,b and c. After that other scripts in the script folder can be run to reproduce further figures shown in the thesis.
+This will download and install this package from this repository, download the raw data files from their respective repositories, preprocess the data and generate all figures. It will take less than a few hours to complete. Instead of producing all figures at once, individual figures can be produced using, e.g., `pertInv::reproduce_figure("8")`. The coresponding analysis scripts can be found in the `scripts` folder.
