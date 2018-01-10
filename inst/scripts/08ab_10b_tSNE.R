@@ -133,4 +133,3 @@ figure(paste0("tSNE - batch corrected", size_normalized, " - p_sgGABPA_1"),
          scale_color_manual(name = "sgGABPA",labels = c("not detected","present"), values = cbPalette[]),
        sub_title=paste0(data_set, "-", transformation_method),
        width=4.5,height=4.5)
-)
