@@ -6,7 +6,7 @@ Date: 2017-06-08
 Author: Jan Gleixner
 Maintainer: Jan Gleixner <jan.gleixner@gmail.com>
 Description: An R package to reproduce the analysis and figures presented in my master thesis on advancing causal inference from single cell perturbation data
-Imports: scran,Matrix,stringr,feather,rstan,shinystan,latex2exp,methods,Hmisc,Rgnuplot,binom,colorspace,lattice,matrixStats,viridis
+Imports: edgeR,Matrix,stringr,feather,rstan,shinystan,latex2exp,methods,Hmisc,Rgnuplot,binom,colorspace,lattice,matrixStats,viridis
 Depends: data.table,ggplot2,cowplot
 License: MIT + file LICENSE.template
 License_is_FOSS: yes
