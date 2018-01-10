@@ -4,11 +4,11 @@
 setup_data <- function() {
   dir.create("data_raw", showWarnings = FALSE)
   base_path <- "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE90nnn/GSE90063/suppl/"
-  download_data_file <- function(base_path, filename) download.file(paste0(base_path, filename), file.path("data_raw", filename), method = "auto", mode="wb")
+  download_data_file <- function(base_path, filename) utils::download.file(paste0(base_path, filename), file.path("data_raw", filename), method = "auto", mode="wb")
 
   if (!file.exists(file.path("data_raw", "GSM2396858_k562_tfs_7.mtx.txt.gz"))){
     download_data_file(base_path, "GSE90063_RAW.tar")
-    untar(file.path("data_raw", "GSE90063_RAW.tar"), exdir="data_raw")
+    utils::untar(file.path("data_raw", "GSE90063_RAW.tar"), exdir="data_raw")
     file.remove(file.path("data_raw", "GSE90063_RAW.tar"))
   }
 

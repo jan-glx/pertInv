@@ -15,6 +15,16 @@ figure1(title_, p, sub_title = FALSE, title = !sub_title, width = 4,
 \item{sub_title}{\code{title_} will be added as sub title to the plot if set}
 
 \item{title}{\code{title_} will be added as title to the plot if set}
+
+\item{width}{numeric, width of the saved plots}
+
+\item{height}{numeric, height of the saved plots}
+
+\item{units}{character, unit of \code{width} and \code{height} values}
+
+\item{res}{numeric, resolution of the saved plots}
+
+\item{...}{further arguments passed to \code{png()} and \code{pdf()}}
 }
 \value{
 \code{p} evaluated

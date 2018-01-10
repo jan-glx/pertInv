@@ -1,3 +1,4 @@
+
 #' @export
 figure <- function(title, p, sub_title = if(exists("data_set")) data_set else character(0), ...){
   RESULT_FOLDER <- "results"
@@ -17,10 +18,16 @@ figure <- function(title, p, sub_title = if(exists("data_set")) data_set else ch
 #' @param p unevaluated expression that performs the plot
 #' @param sub_title \code{title_} will be added as sub title to the plot if set
 #' @param title \code{title_} will be added as title to the plot if set
+#' @param width numeric, width of the saved plots
+#' @param height numeric, height of the saved plots
+#' @param units character, unit of \code{width} and \code{height} values
+#' @param res numeric, resolution of the saved plots
+#' @param ... further arguments passed to \code{png()} and \code{pdf()}
 #'
 #' @return \code{p} evaluated
 #'
 #'
+#' @importFrom grDevices dev.off pdf png
 #' @export
 figure1 <- function(title_, p, sub_title=FALSE, title=!sub_title, width=4, height=4, units = 'in', res=600, ...){
   p <- substitute(p)
@@ -52,7 +59,7 @@ stabilize_Anscombes <- function(count_matrix){
   # See https://f1000research.com/posters/4-1041 for motivation.
   # Assumes columns are samples, and rows are genes
   mu <- colMeans(count_matrix)
-  sigma_sq <- matrixStats:::colVars(count_matrix)
+  sigma_sq <- matrixStats::colVars(count_matrix)
   phi_hat <- phi_hat(mu, sigma_sq)
   log2(count_matrix + 1. / (2 * phi_hat))
 }
@@ -106,7 +113,7 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2"
 
 #' @export
 cool_warm <- function(n) {
-  colormap <- Rgnuplot:::GpdivergingColormap(seq(0,1,length.out=n),
+  colormap <- Rgnuplot::GpdivergingColormap(seq(0,1,length.out=n),
                                              rgb1 = colorspace::sRGB( 0.230, 0.299, 0.754),
                                              rgb2 = colorspace::sRGB( 0.706, 0.016, 0.150),
                                              outColorspace = "sRGB")
@@ -128,7 +135,7 @@ is_dev <- function(){
 }
 
 
-GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, draw_group = function(self, data, ..., draw_quantiles = NULL){
+GeomSplitViolin <- ggplot2::ggproto("GeomSplitViolin", GeomViolin, draw_group = function(self, data, ..., draw_quantiles = NULL){
   data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
   grp <- data[1,'group']
   newdata <- plyr::arrange(transform(data, x = if(grp%%2==1) xminv else xmaxv), if(grp%%2==1) y else -y)
@@ -198,7 +205,7 @@ quantile_ci <-  function(y, p=0.5, conf.level = 0.95, alpha = 1-conf.level) {
 }
 
 #' @export
-PositionJitterNormal <- ggproto("PositionJitterNormal", PositionJitter, compute_layer = function(self, data, params, panel){
+PositionJitterNormal <- ggplot2::ggproto("PositionJitterNormal", PositionJitter, compute_layer = function(self, data, params, panel){
   trans_x <- if (params$width > 0)
     function(x) x+rnorm(length(x), sd= params$width)
   trans_y <- if (params$height > 0)
@@ -209,7 +216,7 @@ PositionJitterNormal <- ggproto("PositionJitterNormal", PositionJitter, compute_
 #' @export
 position_jitter_normal <- function (width = NULL, height = NULL)
 {
-  ggproto(NULL, PositionJitterNormal, width = width, height = height)
+  ggplot2::ggproto(NULL, PositionJitterNormal, width = width, height = height)
 }
 
 
@@ -225,7 +232,7 @@ geom_jitter_normal <-function (mapping = NULL, data = NULL, stat = "identity", p
     }
     position <- position_jitter_normal(width = width, height = height)
   }
-  layer(data = data, mapping = mapping, stat = stat, geom = GeomPoint,
+  ggplot2::layer(data = data, mapping = mapping, stat = stat, geom = GeomPoint,
         position = position, show.legend = show.legend, inherit.aes = inherit.aes,
         params = list(na.rm = na.rm, ...))
 }
